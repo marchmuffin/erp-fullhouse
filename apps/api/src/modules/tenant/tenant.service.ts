@@ -77,6 +77,90 @@ export class TenantService {
       // Create tenant schema in PostgreSQL
       await tx.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
+      // Create tenant business tables (sales module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS customers (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          code VARCHAR(20) UNIQUE NOT NULL,
+          name VARCHAR(200) NOT NULL,
+          name_en VARCHAR(200),
+          tax_id VARCHAR(20),
+          credit_limit NUMERIC(15,2) NOT NULL DEFAULT 0,
+          credit_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
+          payment_terms INTEGER NOT NULL DEFAULT 30,
+          grade VARCHAR(1) NOT NULL DEFAULT 'C',
+          contact_name VARCHAR(100),
+          contact_phone VARCHAR(50),
+          contact_email VARCHAR(254),
+          address TEXT,
+          city VARCHAR(100),
+          country VARCHAR(2) NOT NULL DEFAULT 'TW',
+          currency VARCHAR(3) NOT NULL DEFAULT 'TWD',
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          notes TEXT,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS sales_orders (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          order_no VARCHAR(30) UNIQUE NOT NULL,
+          customer_id UUID NOT NULL REFERENCES "${schemaName}".customers(id),
+          status VARCHAR(30) NOT NULL DEFAULT 'draft',
+          order_date DATE NOT NULL,
+          requested_date DATE,
+          shipping_address TEXT,
+          currency VARCHAR(3) NOT NULL DEFAULT 'TWD',
+          exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
+          subtotal NUMERIC(15,2) NOT NULL DEFAULT 0,
+          tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          total NUMERIC(15,2) NOT NULL DEFAULT 0,
+          credit_checked BOOLEAN NOT NULL DEFAULT FALSE,
+          notes TEXT,
+          approved_by UUID,
+          approved_at TIMESTAMPTZ,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS so_lines (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id) ON DELETE CASCADE,
+          line_no INTEGER NOT NULL,
+          item_code VARCHAR(30) NOT NULL,
+          item_name VARCHAR(200) NOT NULL,
+          spec VARCHAR(200),
+          unit VARCHAR(20) NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          unit_price NUMERIC(15,4) NOT NULL,
+          discount NUMERIC(5,2) NOT NULL DEFAULT 0,
+          amount NUMERIC(15,2) NOT NULL,
+          shipped_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+          notes TEXT,
+          UNIQUE(so_id, line_no)
+        );
+
+        CREATE TABLE IF NOT EXISTS delivery_orders (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          do_no VARCHAR(30) UNIQUE NOT NULL,
+          so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id),
+          status VARCHAR(20) NOT NULL DEFAULT 'draft',
+          ship_date DATE,
+          carrier VARCHAR(100),
+          tracking_no VARCHAR(100),
+          notes TEXT,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

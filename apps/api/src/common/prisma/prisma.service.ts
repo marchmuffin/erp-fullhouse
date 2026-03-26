@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -8,7 +8,6 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   constructor() {
     super({
       log: [
-        { emit: 'event', level: 'query' },
         { emit: 'stdout', level: 'error' },
         { emit: 'stdout', level: 'warn' },
       ],
@@ -26,12 +25,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   /**
-   * Execute queries in a specific tenant schema
-   * Used for schema-per-tenant multi-tenancy
+   * Execute queries in a specific tenant schema using SET LOCAL search_path.
+   * SET LOCAL is transaction-scoped, making it safe with PgBouncer connection pooling.
    */
-  async withTenantSchema<T>(schemaName: string, fn: () => Promise<T>): Promise<T> {
-    // Set search_path then execute the function in a transaction
-    await this.$executeRawUnsafe(`SET search_path TO "${schemaName}", public`);
-    return fn();
+  async withTenantSchema<T>(
+    schemaName: string,
+    fn: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<T> {
+    return this.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schemaName}", public`);
+      return fn(tx);
+    });
   }
 }

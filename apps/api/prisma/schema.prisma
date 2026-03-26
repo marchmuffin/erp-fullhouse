@@ -201,3 +201,108 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+
+// ============================================================
+// TENANT SCHEMA MODELS
+// These are created per-tenant schema via tenant-schema-init.sql
+// Prisma client routes to the correct schema using SET LOCAL search_path
+// ============================================================
+
+// ----- SALES MODULE -----
+
+model Customer {
+  id            String    @id @default(uuid()) @db.Uuid
+  code          String    @unique @db.VarChar(20)
+  name          String    @db.VarChar(200)
+  nameEn        String?   @map("name_en") @db.VarChar(200)
+  taxId         String?   @map("tax_id") @db.VarChar(20)
+  creditLimit   Decimal   @default(0) @map("credit_limit") @db.Decimal(15, 2)
+  creditBalance Decimal   @default(0) @map("credit_balance") @db.Decimal(15, 2)
+  paymentTerms  Int       @default(30) @map("payment_terms")
+  grade         String    @default("C") @db.VarChar(1)
+  contactName   String?   @map("contact_name") @db.VarChar(100)
+  contactPhone  String?   @map("contact_phone") @db.VarChar(50)
+  contactEmail  String?   @map("contact_email") @db.VarChar(254)
+  address       String?
+  city          String?   @db.VarChar(100)
+  country       String    @default("TW") @db.VarChar(2)
+  currency      String    @default("TWD") @db.VarChar(3)
+  isActive      Boolean   @default(true) @map("is_active")
+  notes         String?
+  createdBy     String    @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  salesOrders SalesOrder[]
+
+  @@map("customers")
+}
+
+model SalesOrder {
+  id              String    @id @default(uuid()) @db.Uuid
+  orderNo         String    @unique @map("order_no") @db.VarChar(30)
+  customerId      String    @map("customer_id") @db.Uuid
+  status          String    @default("draft") @db.VarChar(30)
+  orderDate       DateTime  @map("order_date") @db.Date
+  requestedDate   DateTime? @map("requested_date") @db.Date
+  shippingAddress String?   @map("shipping_address")
+  currency        String    @default("TWD") @db.VarChar(3)
+  exchangeRate    Decimal   @default(1) @map("exchange_rate") @db.Decimal(10, 6)
+  subtotal        Decimal   @default(0) @db.Decimal(15, 2)
+  taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  total           Decimal   @default(0) @db.Decimal(15, 2)
+  creditChecked   Boolean   @default(false) @map("credit_checked")
+  notes           String?
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz
+  createdBy       String    @map("created_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz
+
+  customer       Customer         @relation(fields: [customerId], references: [id])
+  lines          SalesOrderLine[]
+  deliveryOrders DeliveryOrder[]
+
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id         String  @id @default(uuid()) @db.Uuid
+  soId       String  @map("so_id") @db.Uuid
+  lineNo     Int     @map("line_no")
+  itemCode   String  @map("item_code") @db.VarChar(30)
+  itemName   String  @map("item_name") @db.VarChar(200)
+  spec       String? @db.VarChar(200)
+  unit       String  @db.VarChar(20)
+  quantity   Decimal @db.Decimal(15, 4)
+  unitPrice  Decimal @map("unit_price") @db.Decimal(15, 4)
+  discount   Decimal @default(0) @db.Decimal(5, 2)
+  amount     Decimal @db.Decimal(15, 2)
+  shippedQty Decimal @default(0) @map("shipped_qty") @db.Decimal(15, 4)
+  notes      String?
+
+  order SalesOrder @relation(fields: [soId], references: [id], onDelete: Cascade)
+
+  @@unique([soId, lineNo])
+  @@map("so_lines")
+}
+
+model DeliveryOrder {
+  id         String    @id @default(uuid()) @db.Uuid
+  doNo       String    @unique @map("do_no") @db.VarChar(30)
+  soId       String    @map("so_id") @db.Uuid
+  status     String    @default("draft") @db.VarChar(20)
+  shipDate   DateTime? @map("ship_date") @db.Date
+  carrier    String?   @db.VarChar(100)
+  trackingNo String?   @map("tracking_no") @db.VarChar(100)
+  notes      String?
+  createdBy  String    @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  order     SalesOrder @relation(fields: [soId], references: [id])
+
+  @@map("delivery_orders")
+}

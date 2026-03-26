@@ -43,3 +43,13 @@ export const TenantId = createParamDecorator(
     return request.tenantId;
   },
 );
+
+/**
+ * Get current tenant schema name from request (set by TenantMiddleware)
+ */
+export const TenantSchema = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest<TenantRequest>();
+    return request.tenantSchemaName;
+  },
+);
