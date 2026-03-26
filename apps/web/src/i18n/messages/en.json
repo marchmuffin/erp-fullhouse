@@ -1,0 +1,59 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "import": "Import",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "loading": "Loading...",
+    "noData": "No data",
+    "actions": "Actions",
+    "status": "Status",
+    "createdAt": "Created At",
+    "updatedAt": "Updated At"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "twoFaCode": "2FA Code",
+    "loginSuccess": "Login successful",
+    "loginFailed": "Login failed",
+    "invalidCredentials": "Invalid email or password"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "procurement": "Procurement",
+    "sales": "Sales",
+    "inventory": "Inventory",
+    "manufacturing": "Manufacturing",
+    "finance": "Finance",
+    "hr": "Human Resources",
+    "crm": "CRM",
+    "quality": "Quality",
+    "bi": "Business Intelligence",
+    "bpm": "BPM",
+    "pos": "POS",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "monthlySales": "Monthly Sales",
+    "pendingPO": "Pending Purchase Orders",
+    "stockAlert": "Stock Alerts",
+    "accountsReceivable": "Accounts Receivable",
+    "employees": "Active Employees",
+    "qualityIssues": "Quality Issues",
+    "recentActivity": "Recent Activity",
+    "pendingApprovals": "Pending Approvals"
+  }
+}
