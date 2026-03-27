@@ -11,6 +11,7 @@ import { UserModule } from './modules/user/user.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { ProcurementModule } from './modules/procurement/procurement.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { ManufacturingModule } from './modules/manufacturing/manufacturing.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -58,6 +59,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     SalesModule,
     ProcurementModule,
     InventoryModule,
+    ManufacturingModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -365,6 +365,74 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (manufacturing module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS boms (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          version TEXT NOT NULL DEFAULT '1.0',
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(item_id, version)
+        );
+
+        CREATE TABLE IF NOT EXISTS bom_lines (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          bom_id TEXT NOT NULL REFERENCES "${schemaName}".boms(id),
+          line_no INTEGER NOT NULL,
+          component_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          quantity NUMERIC(15,4) NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'PCS',
+          notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS work_orders (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          wo_no TEXT UNIQUE NOT NULL,
+          bom_id TEXT REFERENCES "${schemaName}".boms(id),
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          planned_qty NUMERIC(15,4) NOT NULL,
+          produced_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+          warehouse_id TEXT REFERENCES "${schemaName}".warehouses(id),
+          status TEXT NOT NULL DEFAULT 'draft',
+          planned_start TIMESTAMPTZ,
+          planned_end TIMESTAMPTZ,
+          actual_start TIMESTAMPTZ,
+          actual_end TIMESTAMPTZ,
+          notes TEXT,
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS wo_operations (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
+          step_no INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          planned_hours NUMERIC(8,2),
+          actual_hours NUMERIC(8,2),
+          status TEXT NOT NULL DEFAULT 'pending',
+          completed_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS wo_material_issues (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
+          required_qty NUMERIC(15,4) NOT NULL,
+          issued_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+          issued_at TIMESTAMPTZ,
+          issued_by TEXT
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

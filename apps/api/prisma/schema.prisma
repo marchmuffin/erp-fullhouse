@@ -478,9 +478,13 @@ model Item {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  stockLevels  StockLevel[]
-  transactions StockTransaction[]
-  countLines   StockCountLine[]
+  stockLevels    StockLevel[]
+  transactions   StockTransaction[]
+  countLines     StockCountLine[]
+  boms           Bom[]
+  bomComponents  BomLine[]         @relation("BomLineComponent")
+  workOrders     WorkOrder[]       @relation("WorkOrderItem")
+  materialIssues WoMaterialIssue[] @relation("WoMaterialIssueItem")
 
   @@map("items")
 }
@@ -568,4 +572,86 @@ model StockCountLine {
   item       Item       @relation(fields: [itemId], references: [id])
 
   @@map("stock_count_lines")
+}
+
+// ----- MANUFACTURING MODULE -----
+
+model Bom {
+  id          String    @id @default(cuid())
+  itemId      String
+  version     String    @default("1.0")
+  isActive    Boolean   @default(true)
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  item        Item      @relation(fields: [itemId], references: [id])
+  lines       BomLine[]
+  workOrders  WorkOrder[]
+  @@unique([itemId, version])
+  @@map("boms")
+}
+
+model BomLine {
+  id           String  @id @default(cuid())
+  bomId        String
+  lineNo       Int
+  componentId  String
+  quantity     Decimal @db.Decimal(15, 4)
+  unit         String  @default("PCS")
+  notes        String?
+  bom          Bom     @relation(fields: [bomId], references: [id])
+  component    Item    @relation("BomLineComponent", fields: [componentId], references: [id])
+  @@map("bom_lines")
+}
+
+model WorkOrder {
+  id              String          @id @default(cuid())
+  woNo            String          @unique
+  bomId           String?
+  itemId          String
+  plannedQty      Decimal         @db.Decimal(15, 4)
+  producedQty     Decimal         @default(0) @db.Decimal(15, 4)
+  warehouseId     String?
+  status          String          @default("draft")
+  plannedStart    DateTime?
+  plannedEnd      DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  notes           String?
+  createdBy       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  bom             Bom?            @relation(fields: [bomId], references: [id])
+  item            Item            @relation("WorkOrderItem", fields: [itemId], references: [id])
+  operations      WoOperation[]
+  materialIssues  WoMaterialIssue[]
+  @@map("work_orders")
+}
+
+model WoOperation {
+  id            String    @id @default(cuid())
+  workOrderId   String
+  stepNo        Int
+  name          String
+  description   String?
+  plannedHours  Decimal?  @db.Decimal(8, 2)
+  actualHours   Decimal?  @db.Decimal(8, 2)
+  status        String    @default("pending")
+  completedAt   DateTime?
+  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id])
+  @@map("wo_operations")
+}
+
+model WoMaterialIssue {
+  id          String    @id @default(cuid())
+  workOrderId String
+  itemId      String
+  warehouseId String
+  requiredQty Decimal   @db.Decimal(15, 4)
+  issuedQty   Decimal   @default(0) @db.Decimal(15, 4)
+  issuedAt    DateTime?
+  issuedBy    String?
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  item        Item      @relation("WoMaterialIssueItem", fields: [itemId], references: [id])
+  @@map("wo_material_issues")
 }
