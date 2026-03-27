@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { UserModule } from './modules/user/user.module';
 import { SalesModule } from './modules/sales/sales.module';
+import { ProcurementModule } from './modules/procurement/procurement.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -54,6 +55,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     TenantModule,
     UserModule,
     SalesModule,
+    ProcurementModule,
   ],
 })
 export class AppModule implements NestModule {

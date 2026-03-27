@@ -161,6 +161,130 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (procurement module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS suppliers (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          code VARCHAR(20) UNIQUE NOT NULL,
+          name VARCHAR(200) NOT NULL,
+          name_en VARCHAR(200),
+          tax_id VARCHAR(20),
+          payment_terms INTEGER NOT NULL DEFAULT 30,
+          grade VARCHAR(1) NOT NULL DEFAULT 'C',
+          contact_name VARCHAR(100),
+          contact_phone VARCHAR(50),
+          contact_email VARCHAR(254),
+          address TEXT,
+          city VARCHAR(100),
+          country VARCHAR(2) NOT NULL DEFAULT 'TW',
+          currency VARCHAR(3) NOT NULL DEFAULT 'TWD',
+          bank_name VARCHAR(100),
+          bank_account VARCHAR(50),
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          notes TEXT,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_requisitions (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          pr_no VARCHAR(30) UNIQUE NOT NULL,
+          status VARCHAR(30) NOT NULL DEFAULT 'draft',
+          request_date DATE NOT NULL,
+          required_date DATE,
+          department VARCHAR(100),
+          purpose TEXT,
+          notes TEXT,
+          approved_by UUID,
+          approved_at TIMESTAMPTZ,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS pr_lines (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          pr_id UUID NOT NULL REFERENCES "${schemaName}".purchase_requisitions(id) ON DELETE CASCADE,
+          line_no INTEGER NOT NULL,
+          item_code VARCHAR(30) NOT NULL,
+          item_name VARCHAR(200) NOT NULL,
+          spec VARCHAR(200),
+          unit VARCHAR(20) NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          notes TEXT,
+          UNIQUE(pr_id, line_no)
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          po_no VARCHAR(30) UNIQUE NOT NULL,
+          supplier_id UUID NOT NULL REFERENCES "${schemaName}".suppliers(id),
+          pr_id UUID REFERENCES "${schemaName}".purchase_requisitions(id),
+          status VARCHAR(30) NOT NULL DEFAULT 'draft',
+          order_date DATE NOT NULL,
+          expected_date DATE,
+          currency VARCHAR(3) NOT NULL DEFAULT 'TWD',
+          exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
+          subtotal NUMERIC(15,2) NOT NULL DEFAULT 0,
+          tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          total NUMERIC(15,2) NOT NULL DEFAULT 0,
+          notes TEXT,
+          approved_by UUID,
+          approved_at TIMESTAMPTZ,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMPTZ
+        );
+
+        CREATE TABLE IF NOT EXISTS po_lines (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id) ON DELETE CASCADE,
+          line_no INTEGER NOT NULL,
+          item_code VARCHAR(30) NOT NULL,
+          item_name VARCHAR(200) NOT NULL,
+          spec VARCHAR(200),
+          unit VARCHAR(20) NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          unit_price NUMERIC(15,4) NOT NULL,
+          amount NUMERIC(15,2) NOT NULL,
+          received_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+          notes TEXT,
+          UNIQUE(po_id, line_no)
+        );
+
+        CREATE TABLE IF NOT EXISTS goods_receipts (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          gr_no VARCHAR(30) UNIQUE NOT NULL,
+          po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id),
+          status VARCHAR(20) NOT NULL DEFAULT 'draft',
+          receive_date DATE NOT NULL,
+          notes TEXT,
+          created_by UUID NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS gr_lines (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          gr_id UUID NOT NULL REFERENCES "${schemaName}".goods_receipts(id) ON DELETE CASCADE,
+          po_line_id UUID NOT NULL,
+          line_no INTEGER NOT NULL,
+          item_code VARCHAR(30) NOT NULL,
+          item_name VARCHAR(200) NOT NULL,
+          unit VARCHAR(20) NOT NULL,
+          ordered_qty NUMERIC(15,4) NOT NULL,
+          received_qty NUMERIC(15,4) NOT NULL,
+          notes TEXT,
+          UNIQUE(gr_id, line_no)
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

@@ -306,3 +306,157 @@ model DeliveryOrder {
 
   @@map("delivery_orders")
 }
+
+// ----- PROCUREMENT MODULE -----
+
+model Supplier {
+  id             String    @id @default(uuid()) @db.Uuid
+  code           String    @unique @db.VarChar(20)
+  name           String    @db.VarChar(200)
+  nameEn         String?   @map("name_en") @db.VarChar(200)
+  taxId          String?   @map("tax_id") @db.VarChar(20)
+  paymentTerms   Int       @default(30) @map("payment_terms")
+  grade          String    @default("C") @db.VarChar(1)
+  contactName    String?   @map("contact_name") @db.VarChar(100)
+  contactPhone   String?   @map("contact_phone") @db.VarChar(50)
+  contactEmail   String?   @map("contact_email") @db.VarChar(254)
+  address        String?
+  city           String?   @db.VarChar(100)
+  country        String    @default("TW") @db.VarChar(2)
+  currency       String    @default("TWD") @db.VarChar(3)
+  bankName       String?   @map("bank_name") @db.VarChar(100)
+  bankAccount    String?   @map("bank_account") @db.VarChar(50)
+  isActive       Boolean   @default(true) @map("is_active")
+  notes          String?
+  createdBy      String    @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+
+  purchaseOrders PurchaseOrder[]
+
+  @@map("suppliers")
+}
+
+model PurchaseRequisition {
+  id            String    @id @default(uuid()) @db.Uuid
+  prNo          String    @unique @map("pr_no") @db.VarChar(30)
+  status        String    @default("draft") @db.VarChar(30)
+  requestDate   DateTime  @map("request_date") @db.Date
+  requiredDate  DateTime? @map("required_date") @db.Date
+  department    String?   @db.VarChar(100)
+  purpose       String?
+  notes         String?
+  approvedBy    String?   @map("approved_by") @db.Uuid
+  approvedAt    DateTime? @map("approved_at") @db.Timestamptz
+  createdBy     String    @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  lines          PRLine[]
+  purchaseOrders PurchaseOrder[]
+
+  @@map("purchase_requisitions")
+}
+
+model PRLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  prId        String   @map("pr_id") @db.Uuid
+  lineNo      Int      @map("line_no")
+  itemCode    String   @map("item_code") @db.VarChar(30)
+  itemName    String   @map("item_name") @db.VarChar(200)
+  spec        String?  @db.VarChar(200)
+  unit        String   @db.VarChar(20)
+  quantity    Decimal  @db.Decimal(15, 4)
+  notes       String?
+
+  pr PurchaseRequisition @relation(fields: [prId], references: [id], onDelete: Cascade)
+
+  @@unique([prId, lineNo])
+  @@map("pr_lines")
+}
+
+model PurchaseOrder {
+  id            String    @id @default(uuid()) @db.Uuid
+  poNo          String    @unique @map("po_no") @db.VarChar(30)
+  supplierId    String    @map("supplier_id") @db.Uuid
+  prId          String?   @map("pr_id") @db.Uuid
+  status        String    @default("draft") @db.VarChar(30)
+  orderDate     DateTime  @map("order_date") @db.Date
+  expectedDate  DateTime? @map("expected_date") @db.Date
+  currency      String    @default("TWD") @db.VarChar(3)
+  exchangeRate  Decimal   @default(1) @map("exchange_rate") @db.Decimal(10, 6)
+  subtotal      Decimal   @default(0) @db.Decimal(15, 2)
+  taxAmount     Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  total         Decimal   @default(0) @db.Decimal(15, 2)
+  notes         String?
+  approvedBy    String?   @map("approved_by") @db.Uuid
+  approvedAt    DateTime? @map("approved_at") @db.Timestamptz
+  createdBy     String    @map("created_by") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+
+  supplier      Supplier            @relation(fields: [supplierId], references: [id])
+  pr            PurchaseRequisition? @relation(fields: [prId], references: [id])
+  lines         POLine[]
+  goodsReceipts GoodsReceipt[]
+
+  @@map("purchase_orders")
+}
+
+model POLine {
+  id           String  @id @default(uuid()) @db.Uuid
+  poId         String  @map("po_id") @db.Uuid
+  lineNo       Int     @map("line_no")
+  itemCode     String  @map("item_code") @db.VarChar(30)
+  itemName     String  @map("item_name") @db.VarChar(200)
+  spec         String? @db.VarChar(200)
+  unit         String  @db.VarChar(20)
+  quantity     Decimal @db.Decimal(15, 4)
+  unitPrice    Decimal @map("unit_price") @db.Decimal(15, 4)
+  amount       Decimal @db.Decimal(15, 2)
+  receivedQty  Decimal @default(0) @map("received_qty") @db.Decimal(15, 4)
+  notes        String?
+
+  po PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@unique([poId, lineNo])
+  @@map("po_lines")
+}
+
+model GoodsReceipt {
+  id          String    @id @default(uuid()) @db.Uuid
+  grNo        String    @unique @map("gr_no") @db.VarChar(30)
+  poId        String    @map("po_id") @db.Uuid
+  status      String    @default("draft") @db.VarChar(20)
+  receiveDate DateTime  @map("receive_date") @db.Date
+  notes       String?
+  createdBy   String    @map("created_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  po    PurchaseOrder  @relation(fields: [poId], references: [id])
+  lines GRLine[]
+
+  @@map("goods_receipts")
+}
+
+model GRLine {
+  id           String  @id @default(uuid()) @db.Uuid
+  grId         String  @map("gr_id") @db.Uuid
+  poLineId     String  @map("po_line_id") @db.Uuid
+  lineNo       Int     @map("line_no")
+  itemCode     String  @map("item_code") @db.VarChar(30)
+  itemName     String  @map("item_name") @db.VarChar(200)
+  unit         String  @db.VarChar(20)
+  orderedQty   Decimal @map("ordered_qty") @db.Decimal(15, 4)
+  receivedQty  Decimal @map("received_qty") @db.Decimal(15, 4)
+  notes        String?
+
+  gr GoodsReceipt @relation(fields: [grId], references: [id], onDelete: Cascade)
+
+  @@unique([grId, lineNo])
+  @@map("gr_lines")
+}
