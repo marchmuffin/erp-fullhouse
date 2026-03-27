@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueries } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import {
   ShoppingCart, TrendingUp, Package, DollarSign,
   Users, AlertTriangle,
@@ -67,6 +68,13 @@ function docTypeBadgeClass(docType: string) {
 // ---------------------------------------------------------------------------
 
 export function DashboardOverview() {
+  const [dateStr, setDateStr] = useState('');
+  useEffect(() => {
+    setDateStr(new Date().toLocaleDateString('zh-TW', {
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    }));
+  }, []);
+
   const results = useQueries({
     queries: [
       { queryKey: ['bi', 'summary', 'sales'],        queryFn: biApi.summary.sales,        staleTime: 60_000 },
@@ -140,8 +148,8 @@ export function DashboardOverview() {
       {/* Page header */}
       <div>
         <h2 className="text-2xl font-bold text-foreground">系統概覽</h2>
-        <p className="text-muted-foreground text-sm mt-1" suppressHydrationWarning>
-          {new Date().toLocaleDateString('zh-TW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        <p className="text-muted-foreground text-sm mt-1">
+          {dateStr}
         </p>
       </div>
 
