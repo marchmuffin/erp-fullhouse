@@ -521,6 +521,132 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (HR module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS employees (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          emp_no TEXT UNIQUE NOT NULL,
+          first_name TEXT NOT NULL,
+          last_name TEXT NOT NULL,
+          email TEXT,
+          phone TEXT,
+          department TEXT,
+          position TEXT,
+          hire_date TIMESTAMPTZ NOT NULL,
+          terminate_date TIMESTAMPTZ,
+          salary NUMERIC(15,2) NOT NULL DEFAULT 0,
+          salary_type TEXT NOT NULL DEFAULT 'monthly',
+          status TEXT NOT NULL DEFAULT 'active',
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS leave_requests (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
+          leave_type TEXT NOT NULL,
+          start_date TIMESTAMPTZ NOT NULL,
+          end_date TIMESTAMPTZ NOT NULL,
+          days NUMERIC(5,1) NOT NULL,
+          reason TEXT,
+          status TEXT NOT NULL DEFAULT 'pending',
+          approved_by TEXT,
+          approved_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS attendances (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
+          date TIMESTAMPTZ NOT NULL,
+          check_in TIMESTAMPTZ,
+          check_out TIMESTAMPTZ,
+          hours_worked NUMERIC(5,2),
+          status TEXT NOT NULL DEFAULT 'present',
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(employee_id, date)
+        );
+
+        CREATE TABLE IF NOT EXISTS payroll_runs (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          run_no TEXT UNIQUE NOT NULL,
+          period TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft',
+          total_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          paid_at TIMESTAMPTZ,
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS payroll_items (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          payroll_run_id TEXT NOT NULL REFERENCES "${schemaName}".payroll_runs(id),
+          employee_id TEXT NOT NULL,
+          emp_no TEXT NOT NULL,
+          emp_name TEXT NOT NULL,
+          base_salary NUMERIC(15,2) NOT NULL,
+          allowances NUMERIC(15,2) NOT NULL DEFAULT 0,
+          deductions NUMERIC(15,2) NOT NULL DEFAULT 0,
+          net_pay NUMERIC(15,2) NOT NULL
+        );
+      `);
+
+      // Create tenant business tables (CRM module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS leads (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          name TEXT NOT NULL,
+          company TEXT,
+          email TEXT,
+          phone TEXT,
+          source TEXT,
+          status TEXT NOT NULL DEFAULT 'new',
+          estimated_value NUMERIC(15,2),
+          assigned_to TEXT,
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS opportunities (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          title TEXT NOT NULL,
+          lead_id TEXT REFERENCES "${schemaName}".leads(id),
+          customer_id TEXT,
+          stage TEXT NOT NULL DEFAULT 'prospecting',
+          probability INTEGER NOT NULL DEFAULT 0,
+          value NUMERIC(15,2) NOT NULL DEFAULT 0,
+          expected_close TIMESTAMPTZ,
+          assigned_to TEXT,
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS crm_activities (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          type TEXT NOT NULL,
+          subject TEXT NOT NULL,
+          description TEXT,
+          lead_id TEXT REFERENCES "${schemaName}".leads(id),
+          opportunity_id TEXT REFERENCES "${schemaName}".opportunities(id),
+          scheduled_at TIMESTAMPTZ,
+          completed_at TIMESTAMPTZ,
+          status TEXT NOT NULL DEFAULT 'planned',
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

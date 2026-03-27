@@ -756,3 +756,146 @@ model Payment {
   invoice     Invoice  @relation(fields: [invoiceId], references: [id])
   @@map("payments")
 }
+
+// ----- HR MODULE -----
+
+model Employee {
+  id            String    @id @default(cuid())
+  empNo         String    @unique @map("emp_no")
+  firstName     String    @map("first_name")
+  lastName      String    @map("last_name")
+  email         String?
+  phone         String?
+  department    String?
+  position      String?
+  hireDate      DateTime  @map("hire_date")
+  terminateDate DateTime? @map("terminate_date")
+  salary        Decimal   @default(0) @db.Decimal(15, 2)
+  salaryType    String    @default("monthly") @map("salary_type") // monthly | hourly
+  status        String    @default("active") // active | on_leave | terminated
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  leaveRequests LeaveRequest[]
+  attendances   Attendance[]
+  @@map("employees")
+}
+
+model LeaveRequest {
+  id          String    @id @default(cuid())
+  employeeId  String    @map("employee_id")
+  leaveType   String    @map("leave_type") // annual | sick | personal | unpaid
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  days        Decimal   @db.Decimal(5, 1)
+  reason      String?
+  status      String    @default("pending") // pending | approved | rejected | cancelled
+  approvedBy  String?   @map("approved_by")
+  approvedAt  DateTime? @map("approved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  @@map("leave_requests")
+}
+
+model Attendance {
+  id          String    @id @default(cuid())
+  employeeId  String    @map("employee_id")
+  date        DateTime
+  checkIn     DateTime? @map("check_in")
+  checkOut    DateTime? @map("check_out")
+  hoursWorked Decimal?  @map("hours_worked") @db.Decimal(5, 2)
+  status      String    @default("present") // present | absent | late | half_day | on_leave
+  notes       String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  employee    Employee  @relation(fields: [employeeId], references: [id])
+  @@unique([employeeId, date])
+  @@map("attendances")
+}
+
+model PayrollRun {
+  id          String        @id @default(cuid())
+  runNo       String        @unique @map("run_no")
+  period      String        // e.g. "2024-01"
+  status      String        @default("draft") // draft | approved | paid
+  totalAmount Decimal       @default(0) @map("total_amount") @db.Decimal(15, 2)
+  paidAt      DateTime?     @map("paid_at")
+  createdBy   String?       @map("created_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  items       PayrollItem[]
+  @@map("payroll_runs")
+}
+
+model PayrollItem {
+  id           String     @id @default(cuid())
+  payrollRunId String     @map("payroll_run_id")
+  employeeId   String     @map("employee_id")
+  empNo        String     @map("emp_no")
+  empName      String     @map("emp_name")
+  baseSalary   Decimal    @map("base_salary") @db.Decimal(15, 2)
+  allowances   Decimal    @default(0) @db.Decimal(15, 2)
+  deductions   Decimal    @default(0) @db.Decimal(15, 2)
+  netPay       Decimal    @map("net_pay") @db.Decimal(15, 2)
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id])
+  @@map("payroll_items")
+}
+
+// ----- CRM MODULE -----
+
+model Lead {
+  id             String        @id @default(cuid())
+  name           String
+  company        String?
+  email          String?
+  phone          String?
+  source         String?       // website | referral | cold_call | exhibition | social_media
+  status         String        @default("new") // new | contacted | qualified | disqualified
+  estimatedValue Decimal?      @map("estimated_value") @db.Decimal(15, 2)
+  assignedTo     String?       @map("assigned_to")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  activities     CrmActivity[]
+  opportunities  Opportunity[]
+
+  @@map("leads")
+}
+
+model Opportunity {
+  id            String        @id @default(cuid())
+  title         String
+  leadId        String?       @map("lead_id")
+  customerId    String?       @map("customer_id")
+  stage         String        @default("prospecting") // prospecting | qualification | proposal | negotiation | closed_won | closed_lost
+  probability   Int           @default(0) // 0-100
+  value         Decimal       @default(0) @db.Decimal(15, 2)
+  expectedClose DateTime?     @map("expected_close")
+  assignedTo    String?       @map("assigned_to")
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  lead          Lead?         @relation(fields: [leadId], references: [id])
+  activities    CrmActivity[]
+
+  @@map("opportunities")
+}
+
+model CrmActivity {
+  id            String       @id @default(cuid())
+  type          String       // call | email | meeting | note | task
+  subject       String
+  description   String?
+  leadId        String?      @map("lead_id")
+  opportunityId String?      @map("opportunity_id")
+  scheduledAt   DateTime?    @map("scheduled_at")
+  completedAt   DateTime?    @map("completed_at")
+  status        String       @default("planned") // planned | completed | cancelled
+  createdBy     String?      @map("created_by")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  lead          Lead?        @relation(fields: [leadId], references: [id])
+  opportunity   Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  @@map("crm_activities")
+}

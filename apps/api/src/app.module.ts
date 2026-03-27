@@ -13,6 +13,8 @@ import { ProcurementModule } from './modules/procurement/procurement.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { ManufacturingModule } from './modules/manufacturing/manufacturing.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { HrModule } from './modules/hr/hr.module';
+import { CrmModule } from './modules/crm/crm.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -62,6 +64,8 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     InventoryModule,
     ManufacturingModule,
     FinanceModule,
+    HrModule,
+    CrmModule,
   ],
 })
 export class AppModule implements NestModule {
