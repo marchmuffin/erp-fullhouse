@@ -899,3 +899,116 @@ model CrmActivity {
 
   @@map("crm_activities")
 }
+
+// ----- QUALITY MODULE -----
+
+model InspectionOrder {
+  id            String      @id @default(cuid())
+  ioNo          String      @unique
+  type          String      // incoming | in_process | outgoing
+  refDocType    String?     @map("ref_doc_type")
+  refDocId      String?     @map("ref_doc_id")
+  refDocNo      String?     @map("ref_doc_no")
+  itemId        String?     @map("item_id")
+  itemName      String?     @map("item_name")
+  quantity      Decimal     @db.Decimal(15, 4)
+  status        String      @default("pending") // pending | in_progress | passed | failed | on_hold
+  result        String?     // pass | fail | conditional
+  inspector     String?
+  inspectedAt   DateTime?   @map("inspected_at")
+  notes         String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  checklistItems IoChecklistItem[]
+  ncrs          NonConformance[]
+
+  @@map("inspection_orders")
+}
+
+model IoChecklistItem {
+  id                  String           @id @default(cuid())
+  inspectionOrderId   String           @map("inspection_order_id")
+  itemNo              Int              @map("item_no")
+  checkPoint          String           @map("check_point")
+  criteria            String?
+  result              String?          // pass | fail | na
+  actualValue         String?          @map("actual_value")
+  notes               String?
+  inspectionOrder     InspectionOrder  @relation(fields: [inspectionOrderId], references: [id])
+
+  @@map("io_checklist_items")
+}
+
+model NonConformance {
+  id                  String           @id @default(cuid())
+  ncrNo               String           @unique @map("ncr_no")
+  inspectionOrderId   String?          @map("inspection_order_id")
+  severity            String           @default("minor") // minor | major | critical
+  description         String
+  rootCause           String?          @map("root_cause")
+  correctiveAction    String?          @map("corrective_action")
+  status              String           @default("open") // open | in_review | resolved | closed
+  resolvedAt          DateTime?        @map("resolved_at")
+  resolvedBy          String?          @map("resolved_by")
+  createdBy           String?          @map("created_by")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  inspectionOrder     InspectionOrder? @relation(fields: [inspectionOrderId], references: [id])
+
+  @@map("non_conformances")
+}
+
+// ----- POS MODULE -----
+
+model PosSession {
+  id            String        @id @default(cuid())
+  sessionNo     String        @unique @map("session_no")
+  cashierId     String        @map("cashier_id")
+  cashierName   String        @map("cashier_name")
+  openedAt      DateTime      @default(now()) @map("opened_at")
+  closedAt      DateTime?     @map("closed_at")
+  openingCash   Decimal       @default(0) @map("opening_cash") @db.Decimal(15, 2)
+  closingCash   Decimal?      @map("closing_cash") @db.Decimal(15, 2)
+  totalSales    Decimal       @default(0) @map("total_sales") @db.Decimal(15, 2)
+  totalOrders   Int           @default(0) @map("total_orders")
+  status        String        @default("open") // open | closed
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  orders        PosOrder[]
+  @@map("pos_sessions")
+}
+
+model PosOrder {
+  id             String         @id @default(cuid())
+  orderNo        String         @unique @map("order_no")
+  sessionId      String         @map("session_id")
+  subtotal       Decimal        @db.Decimal(15, 2)
+  taxAmount      Decimal        @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  discountAmount Decimal        @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  totalAmount    Decimal        @map("total_amount") @db.Decimal(15, 2)
+  paidAmount     Decimal        @map("paid_amount") @db.Decimal(15, 2)
+  changeAmount   Decimal        @default(0) @map("change_amount") @db.Decimal(15, 2)
+  paymentMethod  String         @default("cash") @map("payment_method") // cash | card | mobile
+  customerId     String?        @map("customer_id")
+  status         String         @default("completed") // completed | voided
+  voidReason     String?        @map("void_reason")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  session        PosSession     @relation(fields: [sessionId], references: [id])
+  lines          PosOrderLine[]
+  @@map("pos_orders")
+}
+
+model PosOrderLine {
+  id         String   @id @default(cuid())
+  posOrderId String   @map("pos_order_id")
+  itemId     String?  @map("item_id")
+  itemCode   String   @map("item_code")
+  itemName   String   @map("item_name")
+  quantity   Decimal  @db.Decimal(15, 4)
+  unitPrice  Decimal  @map("unit_price") @db.Decimal(15, 4)
+  discount   Decimal  @default(0) @db.Decimal(5, 2)
+  amount     Decimal  @db.Decimal(15, 2)
+  posOrder   PosOrder @relation(fields: [posOrderId], references: [id])
+  @@map("pos_order_lines")
+}

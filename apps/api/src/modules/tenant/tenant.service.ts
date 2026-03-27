@@ -647,6 +647,94 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (quality module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS inspection_orders (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          io_no TEXT UNIQUE NOT NULL,
+          type TEXT NOT NULL,
+          ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT,
+          item_id TEXT, item_name TEXT,
+          quantity NUMERIC(15,4) NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          result TEXT, inspector TEXT, inspected_at TIMESTAMPTZ, notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS io_checklist_items (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          inspection_order_id TEXT NOT NULL REFERENCES "${schemaName}".inspection_orders(id),
+          item_no INTEGER NOT NULL,
+          check_point TEXT NOT NULL,
+          criteria TEXT, result TEXT, actual_value TEXT, notes TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS non_conformances (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          ncr_no TEXT UNIQUE NOT NULL,
+          inspection_order_id TEXT REFERENCES "${schemaName}".inspection_orders(id),
+          severity TEXT NOT NULL DEFAULT 'minor',
+          description TEXT NOT NULL,
+          root_cause TEXT, corrective_action TEXT,
+          status TEXT NOT NULL DEFAULT 'open',
+          resolved_at TIMESTAMPTZ, resolved_by TEXT, created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
+      // Create tenant business tables (POS module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS pos_sessions (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          session_no TEXT UNIQUE NOT NULL,
+          cashier_id TEXT NOT NULL,
+          cashier_name TEXT NOT NULL,
+          opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          closed_at TIMESTAMPTZ,
+          opening_cash NUMERIC(15,2) NOT NULL DEFAULT 0,
+          closing_cash NUMERIC(15,2),
+          total_sales NUMERIC(15,2) NOT NULL DEFAULT 0,
+          total_orders INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'open',
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS pos_orders (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          order_no TEXT UNIQUE NOT NULL,
+          session_id TEXT NOT NULL REFERENCES "${schemaName}".pos_sessions(id),
+          subtotal NUMERIC(15,2) NOT NULL,
+          tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          discount_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          total_amount NUMERIC(15,2) NOT NULL,
+          paid_amount NUMERIC(15,2) NOT NULL,
+          change_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          payment_method TEXT NOT NULL DEFAULT 'cash',
+          customer_id TEXT,
+          status TEXT NOT NULL DEFAULT 'completed',
+          void_reason TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS pos_order_lines (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          pos_order_id TEXT NOT NULL REFERENCES "${schemaName}".pos_orders(id),
+          item_id TEXT,
+          item_code TEXT NOT NULL,
+          item_name TEXT NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          unit_price NUMERIC(15,4) NOT NULL,
+          discount NUMERIC(5,2) NOT NULL DEFAULT 0,
+          amount NUMERIC(15,2) NOT NULL
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

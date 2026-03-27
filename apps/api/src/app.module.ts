@@ -15,6 +15,9 @@ import { ManufacturingModule } from './modules/manufacturing/manufacturing.modul
 import { FinanceModule } from './modules/finance/finance.module';
 import { HrModule } from './modules/hr/hr.module';
 import { CrmModule } from './modules/crm/crm.module';
+import { BiModule } from './modules/bi/bi.module';
+import { QualityModule } from './modules/quality/quality.module';
+import { PosModule } from './modules/pos/pos.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -66,6 +69,9 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     FinanceModule,
     HrModule,
     CrmModule,
+    BiModule,
+    QualityModule,
+    PosModule,
   ],
 })
 export class AppModule implements NestModule {
