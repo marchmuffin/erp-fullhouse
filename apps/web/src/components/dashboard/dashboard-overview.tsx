@@ -140,7 +140,7 @@ export function DashboardOverview() {
       {/* Page header */}
       <div>
         <h2 className="text-2xl font-bold text-foreground">系統概覽</h2>
-        <p className="text-muted-foreground text-sm mt-1">
+        <p className="text-muted-foreground text-sm mt-1" suppressHydrationWarning>
           {new Date().toLocaleDateString('zh-TW', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
       </div>
