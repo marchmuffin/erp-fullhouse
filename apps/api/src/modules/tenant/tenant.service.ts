@@ -433,6 +433,94 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (finance module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS accounts (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          type TEXT NOT NULL,
+          category TEXT,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS journal_entries (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          je_no TEXT UNIQUE NOT NULL,
+          je_date TIMESTAMPTZ NOT NULL,
+          description TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft',
+          ref_doc_type TEXT,
+          ref_doc_id TEXT,
+          ref_doc_no TEXT,
+          created_by TEXT,
+          posted_by TEXT,
+          posted_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS journal_lines (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          journal_entry_id TEXT NOT NULL REFERENCES "${schemaName}".journal_entries(id),
+          line_no INTEGER NOT NULL,
+          debit_account_id TEXT REFERENCES "${schemaName}".accounts(id),
+          credit_account_id TEXT REFERENCES "${schemaName}".accounts(id),
+          amount NUMERIC(15,2) NOT NULL,
+          description TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS invoices (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          invoice_no TEXT UNIQUE NOT NULL,
+          type TEXT NOT NULL,
+          party_id TEXT NOT NULL,
+          party_name TEXT NOT NULL,
+          invoice_date TIMESTAMPTZ NOT NULL,
+          due_date TIMESTAMPTZ NOT NULL,
+          subtotal NUMERIC(15,2) NOT NULL,
+          tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          total_amount NUMERIC(15,2) NOT NULL,
+          paid_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'draft',
+          ref_doc_type TEXT,
+          ref_doc_id TEXT,
+          ref_doc_no TEXT,
+          notes TEXT,
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS invoice_lines (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
+          line_no INTEGER NOT NULL,
+          description TEXT NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          unit_price NUMERIC(15,4) NOT NULL,
+          amount NUMERIC(15,2) NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS payments (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          payment_no TEXT UNIQUE NOT NULL,
+          invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
+          payment_date TIMESTAMPTZ NOT NULL,
+          amount NUMERIC(15,2) NOT NULL,
+          method TEXT NOT NULL,
+          reference TEXT,
+          notes TEXT,
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

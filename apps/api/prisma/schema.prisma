@@ -655,3 +655,104 @@ model WoMaterialIssue {
   item        Item      @relation("WoMaterialIssueItem", fields: [itemId], references: [id])
   @@map("wo_material_issues")
 }
+
+// ----- FINANCE MODULE -----
+
+model Account {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  type        String   // asset | liability | equity | revenue | expense
+  category    String?
+  isActive    Boolean  @default(true) @map("is_active")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  debitLines  JournalLine[] @relation("DebitAccount")
+  creditLines JournalLine[] @relation("CreditAccount")
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id          String        @id @default(cuid())
+  jeNo        String        @unique @map("je_no")
+  jeDate      DateTime      @map("je_date")
+  description String
+  status      String        @default("draft") // draft | posted | reversed
+  refDocType  String?       @map("ref_doc_type")
+  refDocId    String?       @map("ref_doc_id")
+  refDocNo    String?       @map("ref_doc_no")
+  createdBy   String?       @map("created_by")
+  postedBy    String?       @map("posted_by")
+  postedAt    DateTime?     @map("posted_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  lines       JournalLine[]
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id              String       @id @default(cuid())
+  journalEntryId  String       @map("journal_entry_id")
+  lineNo          Int          @map("line_no")
+  debitAccountId  String?      @map("debit_account_id")
+  creditAccountId String?      @map("credit_account_id")
+  amount          Decimal      @db.Decimal(15, 2)
+  description     String?
+  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id])
+  debitAccount    Account?     @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount   Account?     @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  @@map("journal_lines")
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  invoiceNo   String        @unique @map("invoice_no")
+  type        String        // ar (accounts receivable) | ap (accounts payable)
+  partyId     String        @map("party_id")
+  partyName   String        @map("party_name")
+  invoiceDate DateTime      @map("invoice_date")
+  dueDate     DateTime      @map("due_date")
+  subtotal    Decimal       @db.Decimal(15, 2)
+  taxAmount   Decimal       @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  totalAmount Decimal       @map("total_amount") @db.Decimal(15, 2)
+  paidAmount  Decimal       @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  status      String        @default("draft") // draft | issued | partial | paid | overdue | cancelled
+  refDocType  String?       @map("ref_doc_type")
+  refDocId    String?       @map("ref_doc_id")
+  refDocNo    String?       @map("ref_doc_no")
+  notes       String?
+  createdBy   String?       @map("created_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  lines       InvoiceLine[]
+  payments    Payment[]
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id          String  @id @default(cuid())
+  invoiceId   String  @map("invoice_id")
+  lineNo      Int     @map("line_no")
+  description String
+  quantity    Decimal @db.Decimal(15, 4)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(15, 4)
+  amount      Decimal @db.Decimal(15, 2)
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  @@map("invoice_lines")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  paymentNo   String   @unique @map("payment_no")
+  invoiceId   String   @map("invoice_id")
+  paymentDate DateTime @map("payment_date")
+  amount      Decimal  @db.Decimal(15, 2)
+  method      String   // cash | bank_transfer | cheque | credit_card
+  reference   String?
+  notes       String?
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+  @@map("payments")
+}
