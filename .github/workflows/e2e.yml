@@ -1,0 +1,89 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp_user
+          POSTGRES_PASSWORD: erp_password
+          POSTGRES_DB: erp_fullhouse_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/erp_fullhouse_test
+      TEST_DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/erp_fullhouse_test
+      JWT_SECRET: ci-test-jwt-secret-key-32-chars-min
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-key-32-chars
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_IN: 7d
+      REDIS_URL: redis://localhost:6379
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @erp-fullhouse/api exec prisma generate
+
+      - name: Run Prisma migrations
+        run: pnpm --filter @erp-fullhouse/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/erp_fullhouse_test
+
+      - name: Run unit tests
+        run: pnpm --filter @erp-fullhouse/api test --passWithNoTests --forceExit
+        working-directory: apps/api
+
+      - name: Run E2E tests
+        run: pnpm --filter @erp-fullhouse/api test:e2e --forceExit --runInBand
+        working-directory: apps/api
+        env:
+          DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/erp_fullhouse_test
+          TEST_DATABASE_URL: postgresql://erp_user:erp_password@localhost:5432/erp_fullhouse_test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: apps/api/coverage/
+          retention-days: 7
