@@ -143,7 +143,7 @@ export default function DefinitionsPage() {
         <div>
           <h2 className="text-xl font-bold text-foreground">流程定義</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            共 {data?.meta.total ?? 0} 個流程定義
+            共 {data?.meta?.total ?? 0} 個流程定義
           </p>
         </div>
         <div className="flex gap-2">

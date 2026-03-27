@@ -89,7 +89,7 @@ export default function AccountsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">會計科目</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 個科目</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 個科目</p>
         </div>
         <Button onClick={() => setShowCreate(true)}><Plus size={16} /> 新增科目</Button>
       </div>

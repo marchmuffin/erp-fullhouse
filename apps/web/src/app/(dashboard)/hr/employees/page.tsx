@@ -110,7 +110,7 @@ export default function EmployeesPage() {
         <div>
           <h2 className="text-xl font-bold text-foreground">員工管理</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            共 {data?.meta.total ?? 0} 位員工
+            共 {data?.meta?.total ?? 0} 位員工
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>

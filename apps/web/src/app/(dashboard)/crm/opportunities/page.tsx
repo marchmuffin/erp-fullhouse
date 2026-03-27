@@ -115,7 +115,7 @@ export default function OpportunitiesPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">銷售機會</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 筆機會</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 筆機會</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => qc.invalidateQueries({ queryKey: ['crm-opportunities'] })}>

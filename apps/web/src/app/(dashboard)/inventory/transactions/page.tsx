@@ -179,7 +179,7 @@ export default function TransactionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">庫存異動</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 筆異動記錄</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 筆異動記錄</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowIssue(true)}>

@@ -127,7 +127,7 @@ export default function InstancesPage() {
         <div>
           <h2 className="text-xl font-bold text-foreground">稽核軌跡</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            共 {data?.meta.total ?? 0} 筆流程記錄
+            共 {data?.meta?.total ?? 0} 筆流程記錄
           </p>
         </div>
         <Button

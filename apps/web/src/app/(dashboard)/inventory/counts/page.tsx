@@ -126,7 +126,7 @@ export default function CountsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">盤點管理</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 張盤點單</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 張盤點單</p>
         </div>
         <div className="flex gap-2">
           <Button

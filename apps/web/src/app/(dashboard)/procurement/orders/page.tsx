@@ -49,7 +49,7 @@ export default function PurchaseOrdersPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">採購訂單</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 筆</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 筆</p>
         </div>
         <Button onClick={() => router.push('/procurement/orders/new')}><Plus size={16} /> 新增採購單</Button>
       </div>

@@ -107,7 +107,7 @@ export default function JournalPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">日記帳</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 筆傳票</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 筆傳票</p>
         </div>
         <Button onClick={() => setShowCreate(true)}><Plus size={16} /> 新增傳票</Button>
       </div>

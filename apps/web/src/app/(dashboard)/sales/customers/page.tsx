@@ -113,7 +113,7 @@ export default function CustomersPage() {
         <div>
           <h2 className="text-xl font-bold text-foreground">客戶管理</h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            共 {data?.meta.total ?? 0} 位客戶
+            共 {data?.meta?.total ?? 0} 位客戶
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>

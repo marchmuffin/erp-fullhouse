@@ -97,7 +97,7 @@ export default function RequisitionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-foreground">採購申請單</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta.total ?? 0} 筆</p>
+          <p className="text-sm text-muted-foreground mt-0.5">共 {data?.meta?.total ?? 0} 筆</p>
         </div>
         <Button onClick={() => { genPrNo(); setShowCreate(true); }}><Plus size={16} /> 新增申請單</Button>
       </div>
