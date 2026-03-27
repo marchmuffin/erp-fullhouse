@@ -67,440 +67,381 @@ function getModule(resource: string): string {
 // ---------------------------------------------------------------------------
 // Provision a tenant schema — creates all module tables
 // ---------------------------------------------------------------------------
+async function exec(sql: string) {
+  await prisma.$executeRawUnsafe(sql);
+}
+
 async function provisionTenantSchema(schemaName: string) {
-  await prisma.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
-  await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+  const S = schemaName;
+  await exec(`CREATE SCHEMA IF NOT EXISTS "${S}"`);
+  await exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
   // Sales
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS customers (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      code VARCHAR(20) UNIQUE NOT NULL, name VARCHAR(200) NOT NULL,
-      name_en VARCHAR(200), tax_id VARCHAR(20),
-      credit_limit NUMERIC(15,2) NOT NULL DEFAULT 0,
-      credit_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
-      payment_terms INTEGER NOT NULL DEFAULT 30,
-      grade VARCHAR(1) NOT NULL DEFAULT 'C',
-      contact_name VARCHAR(100), contact_phone VARCHAR(50), contact_email VARCHAR(254),
-      address TEXT, city VARCHAR(100), country VARCHAR(2) NOT NULL DEFAULT 'TW',
-      currency VARCHAR(3) NOT NULL DEFAULT 'TWD', is_active BOOLEAN NOT NULL DEFAULT TRUE,
-      notes TEXT, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deleted_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS sales_orders (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      order_no VARCHAR(30) UNIQUE NOT NULL,
-      customer_id UUID NOT NULL REFERENCES "${schemaName}".customers(id),
-      status VARCHAR(30) NOT NULL DEFAULT 'draft',
-      order_date DATE NOT NULL, requested_date DATE, shipping_address TEXT,
-      currency VARCHAR(3) NOT NULL DEFAULT 'TWD', exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
-      subtotal NUMERIC(15,2) NOT NULL DEFAULT 0, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      total NUMERIC(15,2) NOT NULL DEFAULT 0, credit_checked BOOLEAN NOT NULL DEFAULT FALSE,
-      notes TEXT, approved_by UUID, approved_at TIMESTAMPTZ, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deleted_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS so_lines (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id) ON DELETE CASCADE,
-      line_no INTEGER NOT NULL, item_code VARCHAR(30) NOT NULL, item_name VARCHAR(200) NOT NULL,
-      spec VARCHAR(200), unit VARCHAR(20) NOT NULL, quantity NUMERIC(15,4) NOT NULL,
-      unit_price NUMERIC(15,4) NOT NULL, discount NUMERIC(5,2) NOT NULL DEFAULT 0,
-      amount NUMERIC(15,2) NOT NULL, shipped_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
-      notes TEXT, UNIQUE(so_id, line_no)
-    );
-    CREATE TABLE IF NOT EXISTS delivery_orders (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      do_no VARCHAR(30) UNIQUE NOT NULL,
-      so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id),
-      status VARCHAR(20) NOT NULL DEFAULT 'draft', ship_date DATE,
-      carrier VARCHAR(100), tracking_no VARCHAR(100), notes TEXT, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".customers (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, name_en TEXT, tax_id TEXT,
+    credit_limit NUMERIC(15,2) NOT NULL DEFAULT 0, credit_balance NUMERIC(15,2) NOT NULL DEFAULT 0,
+    payment_terms INTEGER NOT NULL DEFAULT 30, grade TEXT NOT NULL DEFAULT 'C',
+    contact_name TEXT, contact_phone TEXT, contact_email TEXT,
+    address TEXT, city TEXT, country TEXT NOT NULL DEFAULT 'TW',
+    currency TEXT NOT NULL DEFAULT 'TWD', is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    notes TEXT, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".sales_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    order_no TEXT UNIQUE NOT NULL, customer_id TEXT NOT NULL REFERENCES "${S}".customers(id),
+    status TEXT NOT NULL DEFAULT 'draft', order_date DATE NOT NULL, requested_date DATE, shipping_address TEXT,
+    currency TEXT NOT NULL DEFAULT 'TWD', exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
+    subtotal NUMERIC(15,2) NOT NULL DEFAULT 0, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    total NUMERIC(15,2) NOT NULL DEFAULT 0, credit_checked BOOLEAN NOT NULL DEFAULT FALSE,
+    notes TEXT, approved_by TEXT, approved_at TIMESTAMPTZ, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".so_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    so_id TEXT NOT NULL REFERENCES "${S}".sales_orders(id) ON DELETE CASCADE,
+    line_no INTEGER NOT NULL, item_code TEXT NOT NULL, item_name TEXT NOT NULL,
+    spec TEXT, unit TEXT NOT NULL, quantity NUMERIC(15,4) NOT NULL,
+    unit_price NUMERIC(15,4) NOT NULL, discount NUMERIC(5,2) NOT NULL DEFAULT 0,
+    amount NUMERIC(15,2) NOT NULL, shipped_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+    notes TEXT, UNIQUE(so_id, line_no)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".delivery_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    do_no TEXT UNIQUE NOT NULL, so_id TEXT NOT NULL REFERENCES "${S}".sales_orders(id),
+    status TEXT NOT NULL DEFAULT 'draft', ship_date DATE,
+    carrier TEXT, tracking_no TEXT, notes TEXT, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
 
   // Procurement
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS suppliers (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      code VARCHAR(20) UNIQUE NOT NULL, name VARCHAR(200) NOT NULL,
-      name_en VARCHAR(200), tax_id VARCHAR(20),
-      payment_terms INTEGER NOT NULL DEFAULT 30, grade VARCHAR(1) NOT NULL DEFAULT 'C',
-      contact_name VARCHAR(100), contact_phone VARCHAR(50), contact_email VARCHAR(254),
-      address TEXT, city VARCHAR(100), country VARCHAR(2) NOT NULL DEFAULT 'TW',
-      currency VARCHAR(3) NOT NULL DEFAULT 'TWD',
-      bank_name VARCHAR(100), bank_account VARCHAR(50),
-      is_active BOOLEAN NOT NULL DEFAULT TRUE, notes TEXT, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deleted_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS purchase_requisitions (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      pr_no VARCHAR(30) UNIQUE NOT NULL, status VARCHAR(30) NOT NULL DEFAULT 'draft',
-      request_date DATE NOT NULL, required_date DATE, department VARCHAR(100), purpose TEXT,
-      notes TEXT, approved_by UUID, approved_at TIMESTAMPTZ, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deleted_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS pr_lines (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      pr_id UUID NOT NULL REFERENCES "${schemaName}".purchase_requisitions(id) ON DELETE CASCADE,
-      line_no INTEGER NOT NULL, item_code VARCHAR(30) NOT NULL, item_name VARCHAR(200) NOT NULL,
-      spec VARCHAR(200), unit VARCHAR(20) NOT NULL, quantity NUMERIC(15,4) NOT NULL,
-      notes TEXT, UNIQUE(pr_id, line_no)
-    );
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      po_no VARCHAR(30) UNIQUE NOT NULL,
-      supplier_id UUID NOT NULL REFERENCES "${schemaName}".suppliers(id),
-      pr_id UUID REFERENCES "${schemaName}".purchase_requisitions(id),
-      status VARCHAR(30) NOT NULL DEFAULT 'draft', order_date DATE NOT NULL, expected_date DATE,
-      currency VARCHAR(3) NOT NULL DEFAULT 'TWD', exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
-      subtotal NUMERIC(15,2) NOT NULL DEFAULT 0, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      total NUMERIC(15,2) NOT NULL DEFAULT 0, notes TEXT,
-      approved_by UUID, approved_at TIMESTAMPTZ, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      deleted_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS po_lines (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id) ON DELETE CASCADE,
-      line_no INTEGER NOT NULL, item_code VARCHAR(30) NOT NULL, item_name VARCHAR(200) NOT NULL,
-      spec VARCHAR(200), unit VARCHAR(20) NOT NULL, quantity NUMERIC(15,4) NOT NULL,
-      unit_price NUMERIC(15,4) NOT NULL, amount NUMERIC(15,2) NOT NULL,
-      received_qty NUMERIC(15,4) NOT NULL DEFAULT 0, notes TEXT, UNIQUE(po_id, line_no)
-    );
-    CREATE TABLE IF NOT EXISTS goods_receipts (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      gr_no VARCHAR(30) UNIQUE NOT NULL,
-      po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id),
-      status VARCHAR(20) NOT NULL DEFAULT 'draft', receive_date DATE NOT NULL,
-      notes TEXT, created_by UUID NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS gr_lines (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      gr_id UUID NOT NULL REFERENCES "${schemaName}".goods_receipts(id) ON DELETE CASCADE,
-      po_line_id UUID NOT NULL, line_no INTEGER NOT NULL, item_code VARCHAR(30) NOT NULL,
-      item_name VARCHAR(200) NOT NULL, unit VARCHAR(20) NOT NULL,
-      ordered_qty NUMERIC(15,4) NOT NULL, received_qty NUMERIC(15,4) NOT NULL,
-      notes TEXT, UNIQUE(gr_id, line_no)
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".suppliers (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, name_en TEXT, tax_id TEXT,
+    payment_terms INTEGER NOT NULL DEFAULT 30, grade TEXT NOT NULL DEFAULT 'C',
+    contact_name TEXT, contact_phone TEXT, contact_email TEXT,
+    address TEXT, city TEXT, country TEXT NOT NULL DEFAULT 'TW',
+    currency TEXT NOT NULL DEFAULT 'TWD', bank_name TEXT, bank_account TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE, notes TEXT, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".purchase_requisitions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    pr_no TEXT UNIQUE NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+    request_date DATE NOT NULL, required_date DATE, department TEXT, purpose TEXT,
+    notes TEXT, approved_by TEXT, approved_at TIMESTAMPTZ, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".pr_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    pr_id TEXT NOT NULL REFERENCES "${S}".purchase_requisitions(id) ON DELETE CASCADE,
+    line_no INTEGER NOT NULL, item_code TEXT NOT NULL, item_name TEXT NOT NULL,
+    spec TEXT, unit TEXT NOT NULL, quantity NUMERIC(15,4) NOT NULL,
+    notes TEXT, UNIQUE(pr_id, line_no)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".purchase_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    po_no TEXT UNIQUE NOT NULL, supplier_id TEXT NOT NULL REFERENCES "${S}".suppliers(id),
+    pr_id TEXT REFERENCES "${S}".purchase_requisitions(id),
+    status TEXT NOT NULL DEFAULT 'draft', order_date DATE NOT NULL, expected_date DATE,
+    currency TEXT NOT NULL DEFAULT 'TWD', exchange_rate NUMERIC(10,6) NOT NULL DEFAULT 1,
+    subtotal NUMERIC(15,2) NOT NULL DEFAULT 0, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    total NUMERIC(15,2) NOT NULL DEFAULT 0, notes TEXT,
+    approved_by TEXT, approved_at TIMESTAMPTZ, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), deleted_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".po_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    po_id TEXT NOT NULL REFERENCES "${S}".purchase_orders(id) ON DELETE CASCADE,
+    line_no INTEGER NOT NULL, item_code TEXT NOT NULL, item_name TEXT NOT NULL,
+    spec TEXT, unit TEXT NOT NULL, quantity NUMERIC(15,4) NOT NULL,
+    unit_price NUMERIC(15,4) NOT NULL, amount NUMERIC(15,2) NOT NULL,
+    received_qty NUMERIC(15,4) NOT NULL DEFAULT 0, notes TEXT, UNIQUE(po_id, line_no)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".goods_receipts (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    gr_no TEXT UNIQUE NOT NULL, po_id TEXT NOT NULL REFERENCES "${S}".purchase_orders(id),
+    status TEXT NOT NULL DEFAULT 'draft', receive_date DATE NOT NULL,
+    notes TEXT, created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".gr_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    gr_id TEXT NOT NULL REFERENCES "${S}".goods_receipts(id) ON DELETE CASCADE,
+    po_line_id TEXT NOT NULL, line_no INTEGER NOT NULL, item_code TEXT NOT NULL,
+    item_name TEXT NOT NULL, unit TEXT NOT NULL,
+    ordered_qty NUMERIC(15,4) NOT NULL, received_qty NUMERIC(15,4) NOT NULL,
+    notes TEXT, UNIQUE(gr_id, line_no)
+  )`);
 
   // Inventory
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS items (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, description TEXT, category TEXT,
-      unit TEXT NOT NULL DEFAULT 'PCS', unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
-      safety_stock NUMERIC(15,4) NOT NULL DEFAULT 0, reorder_point NUMERIC(15,4) NOT NULL DEFAULT 0,
-      is_active BOOLEAN NOT NULL DEFAULT true, notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS warehouses (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, location TEXT,
-      is_active BOOLEAN NOT NULL DEFAULT true,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS stock_levels (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
-      quantity NUMERIC(15,4) NOT NULL DEFAULT 0,
-      reserved_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(item_id, warehouse_id)
-    );
-    CREATE TABLE IF NOT EXISTS stock_transactions (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      txn_no TEXT UNIQUE NOT NULL,
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
-      txn_type TEXT NOT NULL, quantity NUMERIC(15,4) NOT NULL,
-      unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
-      ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT, notes TEXT, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS stock_counts (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      count_no TEXT UNIQUE NOT NULL,
-      warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
-      status TEXT NOT NULL DEFAULT 'draft', count_date TIMESTAMPTZ NOT NULL, notes TEXT,
-      created_by TEXT, completed_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS stock_count_lines (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      stock_count_id TEXT NOT NULL REFERENCES "${schemaName}".stock_counts(id),
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      system_qty NUMERIC(15,4) NOT NULL, counted_qty NUMERIC(15,4),
-      variance NUMERIC(15,4), notes TEXT
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".items (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, description TEXT, category TEXT,
+    unit TEXT NOT NULL DEFAULT 'PCS', unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+    safety_stock NUMERIC(15,4) NOT NULL DEFAULT 0, reorder_point NUMERIC(15,4) NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true, notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".warehouses (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, location TEXT, is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".stock_levels (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    warehouse_id TEXT NOT NULL REFERENCES "${S}".warehouses(id),
+    quantity NUMERIC(15,4) NOT NULL DEFAULT 0, reserved_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(item_id, warehouse_id)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".stock_transactions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    txn_no TEXT UNIQUE NOT NULL, item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    warehouse_id TEXT NOT NULL REFERENCES "${S}".warehouses(id),
+    txn_type TEXT NOT NULL, quantity NUMERIC(15,4) NOT NULL, unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+    ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT, notes TEXT, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".stock_counts (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    count_no TEXT UNIQUE NOT NULL, warehouse_id TEXT NOT NULL REFERENCES "${S}".warehouses(id),
+    status TEXT NOT NULL DEFAULT 'draft', count_date TIMESTAMPTZ NOT NULL, notes TEXT,
+    created_by TEXT, completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".stock_count_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    stock_count_id TEXT NOT NULL REFERENCES "${S}".stock_counts(id),
+    item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    system_qty NUMERIC(15,4) NOT NULL, counted_qty NUMERIC(15,4), variance NUMERIC(15,4), notes TEXT
+  )`);
 
   // Manufacturing
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS boms (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      version TEXT NOT NULL DEFAULT '1.0', is_active BOOLEAN NOT NULL DEFAULT true,
-      description TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      UNIQUE(item_id, version)
-    );
-    CREATE TABLE IF NOT EXISTS bom_lines (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      bom_id TEXT NOT NULL REFERENCES "${schemaName}".boms(id),
-      line_no INTEGER NOT NULL, component_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      quantity NUMERIC(15,4) NOT NULL, unit TEXT NOT NULL DEFAULT 'PCS', notes TEXT
-    );
-    CREATE TABLE IF NOT EXISTS work_orders (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      wo_no TEXT UNIQUE NOT NULL, bom_id TEXT REFERENCES "${schemaName}".boms(id),
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      planned_qty NUMERIC(15,4) NOT NULL, produced_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
-      warehouse_id TEXT REFERENCES "${schemaName}".warehouses(id),
-      status TEXT NOT NULL DEFAULT 'draft',
-      planned_start TIMESTAMPTZ, planned_end TIMESTAMPTZ,
-      actual_start TIMESTAMPTZ, actual_end TIMESTAMPTZ,
-      notes TEXT, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS wo_operations (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
-      step_no INTEGER NOT NULL, name TEXT NOT NULL, description TEXT,
-      planned_hours NUMERIC(8,2), actual_hours NUMERIC(8,2),
-      status TEXT NOT NULL DEFAULT 'pending', completed_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS wo_material_issues (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
-      item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
-      warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
-      required_qty NUMERIC(15,4) NOT NULL, issued_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
-      issued_at TIMESTAMPTZ, issued_by TEXT
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".boms (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    version TEXT NOT NULL DEFAULT '1.0', is_active BOOLEAN NOT NULL DEFAULT true, description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(item_id, version)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".bom_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    bom_id TEXT NOT NULL REFERENCES "${S}".boms(id),
+    line_no INTEGER NOT NULL, component_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    quantity NUMERIC(15,4) NOT NULL, unit TEXT NOT NULL DEFAULT 'PCS', notes TEXT
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".work_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    wo_no TEXT UNIQUE NOT NULL, bom_id TEXT REFERENCES "${S}".boms(id),
+    item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    planned_qty NUMERIC(15,4) NOT NULL, produced_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+    warehouse_id TEXT REFERENCES "${S}".warehouses(id),
+    status TEXT NOT NULL DEFAULT 'draft',
+    planned_start TIMESTAMPTZ, planned_end TIMESTAMPTZ, actual_start TIMESTAMPTZ, actual_end TIMESTAMPTZ,
+    notes TEXT, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".wo_operations (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    work_order_id TEXT NOT NULL REFERENCES "${S}".work_orders(id),
+    step_no INTEGER NOT NULL, name TEXT NOT NULL, description TEXT,
+    planned_hours NUMERIC(8,2), actual_hours NUMERIC(8,2),
+    status TEXT NOT NULL DEFAULT 'pending', completed_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".wo_material_issues (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    work_order_id TEXT NOT NULL REFERENCES "${S}".work_orders(id),
+    item_id TEXT NOT NULL REFERENCES "${S}".items(id),
+    warehouse_id TEXT NOT NULL REFERENCES "${S}".warehouses(id),
+    required_qty NUMERIC(15,4) NOT NULL, issued_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+    issued_at TIMESTAMPTZ, issued_by TEXT
+  )`);
 
   // Finance
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS accounts (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL,
-      category TEXT, is_active BOOLEAN NOT NULL DEFAULT true, notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS journal_entries (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      je_no TEXT UNIQUE NOT NULL, je_date TIMESTAMPTZ NOT NULL,
-      description TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
-      ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT,
-      created_by TEXT, posted_by TEXT, posted_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS journal_lines (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      journal_entry_id TEXT NOT NULL REFERENCES "${schemaName}".journal_entries(id),
-      line_no INTEGER NOT NULL,
-      debit_account_id TEXT REFERENCES "${schemaName}".accounts(id),
-      credit_account_id TEXT REFERENCES "${schemaName}".accounts(id),
-      amount NUMERIC(15,2) NOT NULL, description TEXT
-    );
-    CREATE TABLE IF NOT EXISTS invoices (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      invoice_no TEXT UNIQUE NOT NULL, type TEXT NOT NULL,
-      party_id TEXT NOT NULL, party_name TEXT NOT NULL,
-      invoice_date TIMESTAMPTZ NOT NULL, due_date TIMESTAMPTZ NOT NULL,
-      subtotal NUMERIC(15,2) NOT NULL, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      total_amount NUMERIC(15,2) NOT NULL, paid_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'draft',
-      ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT, notes TEXT, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS invoice_lines (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
-      line_no INTEGER NOT NULL, description TEXT NOT NULL,
-      quantity NUMERIC(15,4) NOT NULL, unit_price NUMERIC(15,4) NOT NULL,
-      amount NUMERIC(15,2) NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS payments (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      payment_no TEXT UNIQUE NOT NULL,
-      invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
-      payment_date TIMESTAMPTZ NOT NULL, amount NUMERIC(15,2) NOT NULL,
-      method TEXT NOT NULL, reference TEXT, notes TEXT, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".accounts (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL,
+    category TEXT, is_active BOOLEAN NOT NULL DEFAULT true, notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".journal_entries (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    je_no TEXT UNIQUE NOT NULL, je_date TIMESTAMPTZ NOT NULL,
+    description TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+    ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT,
+    created_by TEXT, posted_by TEXT, posted_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".journal_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    journal_entry_id TEXT NOT NULL REFERENCES "${S}".journal_entries(id),
+    line_no INTEGER NOT NULL,
+    debit_account_id TEXT REFERENCES "${S}".accounts(id),
+    credit_account_id TEXT REFERENCES "${S}".accounts(id),
+    amount NUMERIC(15,2) NOT NULL, description TEXT
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".invoices (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    invoice_no TEXT UNIQUE NOT NULL, type TEXT NOT NULL, party_id TEXT NOT NULL, party_name TEXT NOT NULL,
+    invoice_date TIMESTAMPTZ NOT NULL, due_date TIMESTAMPTZ NOT NULL,
+    subtotal NUMERIC(15,2) NOT NULL, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    total_amount NUMERIC(15,2) NOT NULL, paid_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'draft',
+    ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT, notes TEXT, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".invoice_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    invoice_id TEXT NOT NULL REFERENCES "${S}".invoices(id),
+    line_no INTEGER NOT NULL, description TEXT NOT NULL,
+    quantity NUMERIC(15,4) NOT NULL, unit_price NUMERIC(15,4) NOT NULL, amount NUMERIC(15,2) NOT NULL
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".payments (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    payment_no TEXT UNIQUE NOT NULL, invoice_id TEXT NOT NULL REFERENCES "${S}".invoices(id),
+    payment_date TIMESTAMPTZ NOT NULL, amount NUMERIC(15,2) NOT NULL,
+    method TEXT NOT NULL, reference TEXT, notes TEXT, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
 
   // HR
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS employees (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      emp_no TEXT UNIQUE NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL,
-      email TEXT, phone TEXT, department TEXT, position TEXT,
-      hire_date TIMESTAMPTZ NOT NULL, terminate_date TIMESTAMPTZ,
-      salary NUMERIC(15,2) NOT NULL DEFAULT 0, salary_type TEXT NOT NULL DEFAULT 'monthly',
-      status TEXT NOT NULL DEFAULT 'active', notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS leave_requests (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
-      leave_type TEXT NOT NULL, start_date TIMESTAMPTZ NOT NULL, end_date TIMESTAMPTZ NOT NULL,
-      days NUMERIC(5,1) NOT NULL, reason TEXT, status TEXT NOT NULL DEFAULT 'pending',
-      approved_by TEXT, approved_at TIMESTAMPTZ,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS attendances (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
-      date TIMESTAMPTZ NOT NULL, check_in TIMESTAMPTZ, check_out TIMESTAMPTZ,
-      hours_worked NUMERIC(5,2), status TEXT NOT NULL DEFAULT 'present', notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(employee_id, date)
-    );
-    CREATE TABLE IF NOT EXISTS payroll_runs (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      run_no TEXT UNIQUE NOT NULL, period TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'draft', total_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      paid_at TIMESTAMPTZ, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS payroll_items (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      payroll_run_id TEXT NOT NULL REFERENCES "${schemaName}".payroll_runs(id),
-      employee_id TEXT NOT NULL, emp_no TEXT NOT NULL, emp_name TEXT NOT NULL,
-      base_salary NUMERIC(15,2) NOT NULL, allowances NUMERIC(15,2) NOT NULL DEFAULT 0,
-      deductions NUMERIC(15,2) NOT NULL DEFAULT 0, net_pay NUMERIC(15,2) NOT NULL
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".employees (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    emp_no TEXT UNIQUE NOT NULL, first_name TEXT NOT NULL, last_name TEXT NOT NULL,
+    email TEXT, phone TEXT, department TEXT, position TEXT,
+    hire_date TIMESTAMPTZ NOT NULL, terminate_date TIMESTAMPTZ,
+    salary NUMERIC(15,2) NOT NULL DEFAULT 0, salary_type TEXT NOT NULL DEFAULT 'monthly',
+    status TEXT NOT NULL DEFAULT 'active', notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".leave_requests (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    employee_id TEXT NOT NULL REFERENCES "${S}".employees(id),
+    leave_type TEXT NOT NULL, start_date TIMESTAMPTZ NOT NULL, end_date TIMESTAMPTZ NOT NULL,
+    days NUMERIC(5,1) NOT NULL, reason TEXT, status TEXT NOT NULL DEFAULT 'pending',
+    approved_by TEXT, approved_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".attendances (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    employee_id TEXT NOT NULL REFERENCES "${S}".employees(id),
+    date TIMESTAMPTZ NOT NULL, check_in TIMESTAMPTZ, check_out TIMESTAMPTZ,
+    hours_worked NUMERIC(5,2), status TEXT NOT NULL DEFAULT 'present', notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(employee_id, date)
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".payroll_runs (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    run_no TEXT UNIQUE NOT NULL, period TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft', total_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    paid_at TIMESTAMPTZ, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".payroll_items (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    payroll_run_id TEXT NOT NULL REFERENCES "${S}".payroll_runs(id),
+    employee_id TEXT NOT NULL, emp_no TEXT NOT NULL, emp_name TEXT NOT NULL,
+    base_salary NUMERIC(15,2) NOT NULL, allowances NUMERIC(15,2) NOT NULL DEFAULT 0,
+    deductions NUMERIC(15,2) NOT NULL DEFAULT 0, net_pay NUMERIC(15,2) NOT NULL
+  )`);
 
   // CRM
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS leads (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      name TEXT NOT NULL, company TEXT, email TEXT, phone TEXT, source TEXT,
-      status TEXT NOT NULL DEFAULT 'new', estimated_value NUMERIC(15,2),
-      assigned_to TEXT, notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS opportunities (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      title TEXT NOT NULL, lead_id TEXT REFERENCES "${schemaName}".leads(id),
-      customer_id TEXT, stage TEXT NOT NULL DEFAULT 'prospecting',
-      probability INTEGER NOT NULL DEFAULT 0, value NUMERIC(15,2) NOT NULL DEFAULT 0,
-      expected_close TIMESTAMPTZ, assigned_to TEXT, notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS crm_activities (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      type TEXT NOT NULL, subject TEXT NOT NULL, description TEXT,
-      lead_id TEXT REFERENCES "${schemaName}".leads(id),
-      opportunity_id TEXT REFERENCES "${schemaName}".opportunities(id),
-      scheduled_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
-      status TEXT NOT NULL DEFAULT 'planned', created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".leads (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    name TEXT NOT NULL, company TEXT, email TEXT, phone TEXT, source TEXT,
+    status TEXT NOT NULL DEFAULT 'new', estimated_value NUMERIC(15,2), assigned_to TEXT, notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".opportunities (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    title TEXT NOT NULL, lead_id TEXT REFERENCES "${S}".leads(id), customer_id TEXT,
+    stage TEXT NOT NULL DEFAULT 'prospecting', probability INTEGER NOT NULL DEFAULT 0,
+    value NUMERIC(15,2) NOT NULL DEFAULT 0, expected_close TIMESTAMPTZ, assigned_to TEXT, notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".crm_activities (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    type TEXT NOT NULL, subject TEXT NOT NULL, description TEXT,
+    lead_id TEXT REFERENCES "${S}".leads(id), opportunity_id TEXT REFERENCES "${S}".opportunities(id),
+    scheduled_at TIMESTAMPTZ, completed_at TIMESTAMPTZ,
+    status TEXT NOT NULL DEFAULT 'planned', created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
 
   // Quality
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS inspection_orders (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      io_no TEXT UNIQUE NOT NULL, type TEXT NOT NULL,
-      ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT,
-      item_id TEXT, item_name TEXT, quantity NUMERIC(15,4) NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      result TEXT, inspector TEXT, inspected_at TIMESTAMPTZ, notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS io_checklist_items (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      inspection_order_id TEXT NOT NULL REFERENCES "${schemaName}".inspection_orders(id),
-      item_no INTEGER NOT NULL, check_point TEXT NOT NULL,
-      criteria TEXT, result TEXT, actual_value TEXT, notes TEXT
-    );
-    CREATE TABLE IF NOT EXISTS non_conformances (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      ncr_no TEXT UNIQUE NOT NULL,
-      inspection_order_id TEXT REFERENCES "${schemaName}".inspection_orders(id),
-      severity TEXT NOT NULL DEFAULT 'minor', description TEXT NOT NULL,
-      root_cause TEXT, corrective_action TEXT, status TEXT NOT NULL DEFAULT 'open',
-      resolved_at TIMESTAMPTZ, resolved_by TEXT, created_by TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".inspection_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    io_no TEXT UNIQUE NOT NULL, type TEXT NOT NULL,
+    ref_doc_type TEXT, ref_doc_id TEXT, ref_doc_no TEXT, item_id TEXT, item_name TEXT,
+    quantity NUMERIC(15,4) NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+    result TEXT, inspector TEXT, inspected_at TIMESTAMPTZ, notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".io_checklist_items (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    inspection_order_id TEXT NOT NULL REFERENCES "${S}".inspection_orders(id),
+    item_no INTEGER NOT NULL, check_point TEXT NOT NULL,
+    criteria TEXT, result TEXT, actual_value TEXT, notes TEXT
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".non_conformances (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    ncr_no TEXT UNIQUE NOT NULL, inspection_order_id TEXT REFERENCES "${S}".inspection_orders(id),
+    severity TEXT NOT NULL DEFAULT 'minor', description TEXT NOT NULL,
+    root_cause TEXT, corrective_action TEXT, status TEXT NOT NULL DEFAULT 'open',
+    resolved_at TIMESTAMPTZ, resolved_by TEXT, created_by TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
 
   // POS
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS pos_sessions (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      session_no TEXT UNIQUE NOT NULL, cashier_id TEXT NOT NULL, cashier_name TEXT NOT NULL,
-      opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), closed_at TIMESTAMPTZ,
-      opening_cash NUMERIC(15,2) NOT NULL DEFAULT 0, closing_cash NUMERIC(15,2),
-      total_sales NUMERIC(15,2) NOT NULL DEFAULT 0, total_orders INTEGER NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'open', notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS pos_orders (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      order_no TEXT UNIQUE NOT NULL,
-      session_id TEXT NOT NULL REFERENCES "${schemaName}".pos_sessions(id),
-      subtotal NUMERIC(15,2) NOT NULL, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      discount_amount NUMERIC(15,2) NOT NULL DEFAULT 0, total_amount NUMERIC(15,2) NOT NULL,
-      paid_amount NUMERIC(15,2) NOT NULL, change_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-      payment_method TEXT NOT NULL DEFAULT 'cash', customer_id TEXT,
-      status TEXT NOT NULL DEFAULT 'completed', void_reason TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS pos_order_lines (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      pos_order_id TEXT NOT NULL REFERENCES "${schemaName}".pos_orders(id),
-      item_id TEXT, item_code TEXT NOT NULL, item_name TEXT NOT NULL,
-      quantity NUMERIC(15,4) NOT NULL, unit_price NUMERIC(15,4) NOT NULL,
-      discount NUMERIC(5,2) NOT NULL DEFAULT 0, amount NUMERIC(15,2) NOT NULL
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".pos_sessions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    session_no TEXT UNIQUE NOT NULL, cashier_id TEXT NOT NULL, cashier_name TEXT NOT NULL,
+    opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), closed_at TIMESTAMPTZ,
+    opening_cash NUMERIC(15,2) NOT NULL DEFAULT 0, closing_cash NUMERIC(15,2),
+    total_sales NUMERIC(15,2) NOT NULL DEFAULT 0, total_orders INTEGER NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open', notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".pos_orders (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    order_no TEXT UNIQUE NOT NULL, session_id TEXT NOT NULL REFERENCES "${S}".pos_sessions(id),
+    subtotal NUMERIC(15,2) NOT NULL, tax_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    discount_amount NUMERIC(15,2) NOT NULL DEFAULT 0, total_amount NUMERIC(15,2) NOT NULL,
+    paid_amount NUMERIC(15,2) NOT NULL, change_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    payment_method TEXT NOT NULL DEFAULT 'cash', customer_id TEXT,
+    status TEXT NOT NULL DEFAULT 'completed', void_reason TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".pos_order_lines (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    pos_order_id TEXT NOT NULL REFERENCES "${S}".pos_orders(id),
+    item_id TEXT, item_code TEXT NOT NULL, item_name TEXT NOT NULL,
+    quantity NUMERIC(15,4) NOT NULL, unit_price NUMERIC(15,4) NOT NULL,
+    discount NUMERIC(5,2) NOT NULL DEFAULT 0, amount NUMERIC(15,2) NOT NULL
+  )`);
 
   // BPM
-  await prisma.$executeRawUnsafe(`
-    SET LOCAL search_path TO "${schemaName}", public;
-    CREATE TABLE IF NOT EXISTS workflow_definitions (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, module TEXT NOT NULL,
-      doc_type TEXT NOT NULL, steps INTEGER NOT NULL DEFAULT 1,
-      is_active BOOLEAN NOT NULL DEFAULT true, description TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS workflow_instances (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      definition_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_definitions(id),
-      doc_type TEXT NOT NULL, doc_id TEXT NOT NULL, doc_no TEXT NOT NULL,
-      submitted_by TEXT NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      current_step INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending',
-      completed_at TIMESTAMPTZ
-    );
-    CREATE TABLE IF NOT EXISTS workflow_steps (
-      id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-      instance_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_instances(id),
-      step_no INTEGER NOT NULL, action TEXT, actor_id TEXT, actor_name TEXT,
-      comment TEXT, acted_at TIMESTAMPTZ
-    );
-  `);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".workflow_definitions (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    code TEXT UNIQUE NOT NULL, name TEXT NOT NULL, module TEXT NOT NULL,
+    doc_type TEXT NOT NULL, steps INTEGER NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true, description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".workflow_instances (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    definition_id TEXT NOT NULL REFERENCES "${S}".workflow_definitions(id),
+    doc_type TEXT NOT NULL, doc_id TEXT NOT NULL, doc_no TEXT NOT NULL,
+    submitted_by TEXT NOT NULL, submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    current_step INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', completed_at TIMESTAMPTZ
+  )`);
+  await exec(`CREATE TABLE IF NOT EXISTS "${S}".workflow_steps (
+    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    instance_id TEXT NOT NULL REFERENCES "${S}".workflow_instances(id),
+    step_no INTEGER NOT NULL, action TEXT, actor_id TEXT, actor_name TEXT,
+    comment TEXT, acted_at TIMESTAMPTZ
+  )`);
 }
 
 // ---------------------------------------------------------------------------
@@ -659,7 +600,7 @@ async function seedTenantData(schemaName: string, adminUserId: string) {
   }
 
   // ── Sales Orders (6 months of data for trend chart) ───────────────────────
-  const salesOrders = [];
+  const salesOrders: any[] = [];
   for (let m = 5; m >= 0; m--) {
     const monthDate = new Date(now.getFullYear(), now.getMonth() - m, 1);
     const ordersThisMonth = m === 0 ? 8 : 5 + Math.floor(Math.random() * 4);
@@ -678,7 +619,7 @@ async function seedTenantData(schemaName: string, adminUserId: string) {
         `INSERT INTO "${S}".sales_orders (id, order_no, customer_id, status, order_date, subtotal, tax_amount, total, created_by, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (order_no) DO NOTHING`,
         orderId, orderNo, customers[custIdx].id, status,
-        orderDate.toISOString().split('T')[0],
+        orderDate,
         subtotal, tax, total, adminUserId, orderDate,
       );
     }
@@ -697,7 +638,7 @@ async function seedTenantData(schemaName: string, adminUserId: string) {
       `INSERT INTO "${S}".purchase_orders (id, po_no, supplier_id, status, order_date, subtotal, tax_amount, total, created_by, created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (po_no) DO NOTHING`,
       poId, poNo, suppliers[suppIdx].id, status,
-      poDate.toISOString().split('T')[0],
+      poDate,
       Math.round(total / 1.05), total - Math.round(total / 1.05), total, adminUserId, poDate,
     );
   }
@@ -885,11 +826,8 @@ async function main() {
   // ─── 5. Users ───────────────────────────────────────────────────────────────
   const passwordHash = await bcrypt.hash('Admin@123', 12);
 
-  const superAdmin = await prisma.user.upsert({
-    where: { tenantId_email: { tenantId: null as unknown as string, email: 'admin@erp.local' } },
-    update: {},
-    create: { email: 'admin@erp.local', displayName: 'Super Admin', passwordHash, isSuperAdmin: true, status: 'active', emailVerifiedAt: new Date(), tenantId: null },
-  });
+  const superAdmin = await prisma.user.findFirst({ where: { email: 'admin@erp.local', tenantId: null } })
+    ?? await prisma.user.create({ data: { email: 'admin@erp.local', displayName: 'Super Admin', passwordHash, isSuperAdmin: true, status: 'active', emailVerifiedAt: new Date(), tenantId: null } });
 
   async function upsertTenantUser(params: { email: string; displayName: string; tenantId: string }) {
     const existing = await prisma.user.findFirst({ where: { tenantId: params.tenantId, email: params.email } });
