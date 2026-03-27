@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @erp-fullhouse/api exec prisma generate
+      - run: pnpm --filter @erp-fullhouse/api tsc --noEmit
+      - run: pnpm --filter @erp-fullhouse/web tsc --noEmit
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @erp-fullhouse/web lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @erp-fullhouse/api exec prisma generate
+      - name: Build API
+        run: pnpm --filter @erp-fullhouse/api build
+      - name: Build Web
+        run: pnpm --filter @erp-fullhouse/web build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4001
