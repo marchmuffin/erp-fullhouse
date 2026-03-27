@@ -18,6 +18,7 @@ import { CrmModule } from './modules/crm/crm.module';
 import { BiModule } from './modules/bi/bi.module';
 import { QualityModule } from './modules/quality/quality.module';
 import { PosModule } from './modules/pos/pos.module';
+import { BpmModule } from './modules/bpm/bpm.module';
 import { TenantMiddleware } from './common/middleware/tenant.middleware';
 
 @Module({
@@ -72,6 +73,7 @@ import { TenantMiddleware } from './common/middleware/tenant.middleware';
     BiModule,
     QualityModule,
     PosModule,
+    BpmModule,
   ],
 })
 export class AppModule implements NestModule {

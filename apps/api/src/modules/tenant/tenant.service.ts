@@ -735,6 +735,46 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (BPM module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS workflow_definitions (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          module TEXT NOT NULL,
+          doc_type TEXT NOT NULL,
+          steps INTEGER NOT NULL DEFAULT 1,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          description TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS workflow_instances (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          definition_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_definitions(id),
+          doc_type TEXT NOT NULL,
+          doc_id TEXT NOT NULL,
+          doc_no TEXT NOT NULL,
+          submitted_by TEXT NOT NULL,
+          submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          current_step INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'pending',
+          completed_at TIMESTAMPTZ
+        );
+        CREATE TABLE IF NOT EXISTS workflow_steps (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          instance_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_instances(id),
+          step_no INTEGER NOT NULL,
+          action TEXT,
+          actor_id TEXT,
+          actor_name TEXT,
+          comment TEXT,
+          acted_at TIMESTAMPTZ
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

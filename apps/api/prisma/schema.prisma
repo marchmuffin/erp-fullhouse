@@ -1012,3 +1012,52 @@ model PosOrderLine {
   posOrder   PosOrder @relation(fields: [posOrderId], references: [id])
   @@map("pos_order_lines")
 }
+
+// ----- BPM MODULE -----
+
+model WorkflowDefinition {
+  id          String             @id @default(cuid())
+  code        String             @unique
+  name        String
+  module      String             // sales | procurement | hr | finance | manufacturing | quality
+  docType     String             @map("doc_type") // so | po | pr | leave | payroll | wo | inspection
+  steps       Int                @default(1)
+  isActive    Boolean            @default(true) @map("is_active")
+  description String?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+  instances   WorkflowInstance[]
+
+  @@map("workflow_definitions")
+}
+
+model WorkflowInstance {
+  id           String             @id @default(cuid())
+  definitionId String             @map("definition_id")
+  docType      String             @map("doc_type")
+  docId        String             @map("doc_id")
+  docNo        String             @map("doc_no")
+  submittedBy  String             @map("submitted_by")
+  submittedAt  DateTime           @default(now()) @map("submitted_at")
+  currentStep  Int                @default(1) @map("current_step")
+  status       String             @default("pending") // pending | approved | rejected | cancelled
+  completedAt  DateTime?          @map("completed_at")
+  definition   WorkflowDefinition @relation(fields: [definitionId], references: [id])
+  steps        WorkflowStep[]
+
+  @@map("workflow_instances")
+}
+
+model WorkflowStep {
+  id         String           @id @default(cuid())
+  instanceId String           @map("instance_id")
+  stepNo     Int              @map("step_no")
+  action     String?          // approved | rejected
+  actorId    String?          @map("actor_id")
+  actorName  String?          @map("actor_name")
+  comment    String?
+  actedAt    DateTime?        @map("acted_at")
+  instance   WorkflowInstance @relation(fields: [instanceId], references: [id])
+
+  @@map("workflow_steps")
+}
