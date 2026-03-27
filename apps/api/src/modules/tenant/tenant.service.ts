@@ -285,6 +285,86 @@ export class TenantService {
         );
       `);
 
+      // Create tenant business tables (inventory module)
+      await tx.$executeRawUnsafe(`
+        SET LOCAL search_path TO "${schemaName}", public;
+
+        CREATE TABLE IF NOT EXISTS items (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          category TEXT,
+          unit TEXT NOT NULL DEFAULT 'PCS',
+          unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+          safety_stock NUMERIC(15,4) NOT NULL DEFAULT 0,
+          reorder_point NUMERIC(15,4) NOT NULL DEFAULT 0,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          notes TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS warehouses (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          code TEXT UNIQUE NOT NULL,
+          name TEXT NOT NULL,
+          location TEXT,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS stock_levels (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
+          quantity NUMERIC(15,4) NOT NULL DEFAULT 0,
+          reserved_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(item_id, warehouse_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS stock_transactions (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          txn_no TEXT UNIQUE NOT NULL,
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
+          txn_type TEXT NOT NULL,
+          quantity NUMERIC(15,4) NOT NULL,
+          unit_cost NUMERIC(15,4) NOT NULL DEFAULT 0,
+          ref_doc_type TEXT,
+          ref_doc_id TEXT,
+          ref_doc_no TEXT,
+          notes TEXT,
+          created_by TEXT,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS stock_counts (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          count_no TEXT UNIQUE NOT NULL,
+          warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
+          status TEXT NOT NULL DEFAULT 'draft',
+          count_date TIMESTAMPTZ NOT NULL,
+          notes TEXT,
+          created_by TEXT,
+          completed_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS stock_count_lines (
+          id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          stock_count_id TEXT NOT NULL REFERENCES "${schemaName}".stock_counts(id),
+          item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
+          system_qty NUMERIC(15,4) NOT NULL,
+          counted_qty NUMERIC(15,4),
+          variance NUMERIC(15,4),
+          notes TEXT
+        );
+      `);
+
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
       await tx.user.create({

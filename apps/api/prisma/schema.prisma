@@ -460,3 +460,112 @@ model GRLine {
   @@unique([grId, lineNo])
   @@map("gr_lines")
 }
+
+// ----- INVENTORY MODULE -----
+
+model Item {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  description   String?
+  category      String?
+  unit          String   @default("PCS")
+  unitCost      Decimal  @default(0) @map("unit_cost") @db.Decimal(15, 4)
+  safetyStock   Decimal  @default(0) @map("safety_stock") @db.Decimal(15, 4)
+  reorderPoint  Decimal  @default(0) @map("reorder_point") @db.Decimal(15, 4)
+  isActive      Boolean  @default(true) @map("is_active")
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  stockLevels  StockLevel[]
+  transactions StockTransaction[]
+  countLines   StockCountLine[]
+
+  @@map("items")
+}
+
+model Warehouse {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  location    String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  stockLevels  StockLevel[]
+  transactions StockTransaction[]
+  stockCounts  StockCount[]
+
+  @@map("warehouses")
+}
+
+model StockLevel {
+  id          String    @id @default(cuid())
+  itemId      String    @map("item_id")
+  warehouseId String    @map("warehouse_id")
+  quantity    Decimal   @default(0) @db.Decimal(15, 4)
+  reservedQty Decimal   @default(0) @map("reserved_qty") @db.Decimal(15, 4)
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  item      Item      @relation(fields: [itemId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([itemId, warehouseId])
+  @@map("stock_levels")
+}
+
+model StockTransaction {
+  id          String   @id @default(cuid())
+  txnNo       String   @unique @map("txn_no")
+  itemId      String   @map("item_id")
+  warehouseId String   @map("warehouse_id")
+  txnType     String   @map("txn_type")
+  quantity    Decimal  @db.Decimal(15, 4)
+  unitCost    Decimal  @default(0) @map("unit_cost") @db.Decimal(15, 4)
+  refDocType  String?  @map("ref_doc_type")
+  refDocId    String?  @map("ref_doc_id")
+  refDocNo    String?  @map("ref_doc_no")
+  notes       String?
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  item      Item      @relation(fields: [itemId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@map("stock_transactions")
+}
+
+model StockCount {
+  id          String    @id @default(cuid())
+  countNo     String    @unique @map("count_no")
+  warehouseId String    @map("warehouse_id")
+  status      String    @default("draft")
+  countDate   DateTime  @map("count_date")
+  notes       String?
+  createdBy   String?   @map("created_by")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
+  lines     StockCountLine[]
+
+  @@map("stock_counts")
+}
+
+model StockCountLine {
+  id           String   @id @default(cuid())
+  stockCountId String   @map("stock_count_id")
+  itemId       String   @map("item_id")
+  systemQty    Decimal  @map("system_qty") @db.Decimal(15, 4)
+  countedQty   Decimal? @map("counted_qty") @db.Decimal(15, 4)
+  variance     Decimal? @db.Decimal(15, 4)
+  notes        String?
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id])
+  item       Item       @relation(fields: [itemId], references: [id])
+
+  @@map("stock_count_lines")
+}
