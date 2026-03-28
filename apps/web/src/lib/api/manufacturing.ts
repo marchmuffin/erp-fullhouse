@@ -49,7 +49,7 @@ export const manufacturingApi = {
   boms: {
     list: async (params?: { page?: number; perPage?: number; search?: string; isActive?: boolean }) => {
       const res = await apiClient.get('/manufacturing/boms', { params });
-      return extract(res) as PaginatedResponse<Bom>;
+      return res.data as PaginatedResponse<Bom>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/manufacturing/boms/${id}`);
@@ -71,7 +71,7 @@ export const manufacturingApi = {
   workOrders: {
     list: async (params?: { page?: number; perPage?: number; search?: string; status?: string }) => {
       const res = await apiClient.get('/manufacturing/work-orders', { params });
-      return extract(res) as PaginatedResponse<WorkOrder>;
+      return res.data as PaginatedResponse<WorkOrder>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/manufacturing/work-orders/${id}`);

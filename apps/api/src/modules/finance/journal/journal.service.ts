@@ -69,6 +69,16 @@ export class JournalService {
             postedBy: true,
             postedAt: true,
             createdAt: true,
+            lines: {
+              select: {
+                id: true,
+                lineNo: true,
+                debitAccountId: true,
+                creditAccountId: true,
+                amount: true,
+                description: true,
+              },
+            },
           },
         }),
         tx.journalEntry.count({ where }),

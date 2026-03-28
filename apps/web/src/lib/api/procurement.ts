@@ -44,7 +44,7 @@ export const procurementApi = {
   suppliers: {
     list: async (params?: { page?: number; perPage?: number; search?: string }) => {
       const res = await apiClient.get('/procurement/suppliers', { params });
-      return extract(res) as PaginatedResponse<Supplier>;
+      return res.data as PaginatedResponse<Supplier>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/procurement/suppliers/${id}`);
@@ -62,7 +62,7 @@ export const procurementApi = {
   requisitions: {
     list: async (params?: { page?: number; perPage?: number; search?: string; status?: string }) => {
       const res = await apiClient.get('/procurement/requisitions', { params });
-      return extract(res) as PaginatedResponse<PurchaseRequisition>;
+      return res.data as PaginatedResponse<PurchaseRequisition>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/procurement/requisitions/${id}`);
@@ -80,7 +80,7 @@ export const procurementApi = {
   orders: {
     list: async (params?: { page?: number; perPage?: number; search?: string; status?: string; supplierId?: string }) => {
       const res = await apiClient.get('/procurement/orders', { params });
-      return extract(res) as PaginatedResponse<PurchaseOrder>;
+      return res.data as PaginatedResponse<PurchaseOrder>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/procurement/orders/${id}`);

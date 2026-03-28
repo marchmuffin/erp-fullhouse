@@ -24,7 +24,11 @@ export class AttendanceService {
       if (fromDate || toDate) {
         where.date = {};
         if (fromDate) where.date.gte = new Date(fromDate);
-        if (toDate) where.date.lte = new Date(toDate);
+        if (toDate) {
+          const end = new Date(toDate);
+          end.setUTCHours(23, 59, 59, 999);
+          where.date.lte = end;
+        }
       }
 
       const [data, total] = await Promise.all([

@@ -12,6 +12,7 @@ export interface AuthUser {
   locale: string;
   timezone: string;
   permissions: string[];
+  twoFaEnabled?: boolean;
 }
 
 interface AuthState {

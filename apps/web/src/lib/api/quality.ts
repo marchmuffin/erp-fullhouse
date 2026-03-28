@@ -61,7 +61,7 @@ export const qualityApi = {
       page?: number; perPage?: number; type?: string; status?: string; search?: string;
     }) => {
       const res = await apiClient.get('/quality/inspections', { params });
-      return extract(res) as PaginatedResponse<InspectionOrder>;
+      return res.data as PaginatedResponse<InspectionOrder>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/quality/inspections/${id}`);
@@ -98,7 +98,7 @@ export const qualityApi = {
       page?: number; perPage?: number; status?: string; severity?: string; search?: string;
     }) => {
       const res = await apiClient.get('/quality/ncrs', { params });
-      return extract(res) as PaginatedResponse<NonConformance>;
+      return res.data as PaginatedResponse<NonConformance>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/quality/ncrs/${id}`);

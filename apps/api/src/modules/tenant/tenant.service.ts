@@ -810,4 +810,23 @@ export class TenantService {
       data: { status: 'active' },
     });
   }
+
+  async update(id: string, dto: { name?: string; contactEmail?: string; contactPhone?: string; plan?: string; status?: string; maxUsers?: number }) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id, deletedAt: null } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    return this.prisma.tenant.update({ where: { id }, data: { ...dto } as any });
+  }
+
+  async exportCsv(): Promise<string> {
+    const tenants = await this.prisma.tenant.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { users: true } } },
+    });
+    const header = ['ID', 'Code', 'Name', 'Plan', 'Status', 'Contact Email', 'Max Users', 'User Count', 'Created At'];
+    const rows = tenants.map(t => [
+      t.id, t.code, `"${t.name}"`, t.plan, t.status, t.contactEmail, t.maxUsers, (t as any)._count?.users ?? 0, t.createdAt.toISOString(),
+    ].join(','));
+    return [header.join(','), ...rows].join('\n');
+  }
 }

@@ -113,7 +113,7 @@ export const salesApi = {
   customers: {
     list: async (params?: { page?: number; perPage?: number; search?: string; isActive?: boolean }) => {
       const res = await apiClient.get('/sales/customers', { params });
-      return extract(res) as PaginatedResponse<Customer>;
+      return res.data as PaginatedResponse<Customer>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/sales/customers/${id}`);
@@ -139,7 +139,7 @@ export const salesApi = {
       status?: string; customerId?: string; fromDate?: string; toDate?: string;
     }) => {
       const res = await apiClient.get('/sales/orders', { params });
-      return extract(res) as PaginatedResponse<SalesOrder>;
+      return res.data as PaginatedResponse<SalesOrder>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/sales/orders/${id}`);

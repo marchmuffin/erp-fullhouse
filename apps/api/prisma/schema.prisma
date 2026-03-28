@@ -577,12 +577,12 @@ model StockCountLine {
 
 model Bom {
   id          String    @id @default(cuid())
-  itemId      String
+  itemId      String    @map("item_id")
   version     String    @default("1.0")
-  isActive    Boolean   @default(true)
+  isActive    Boolean   @default(true) @map("is_active")
   description String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
   item        Item      @relation(fields: [itemId], references: [id])
   lines       BomLine[]
   workOrders  WorkOrder[]
@@ -592,9 +592,9 @@ model Bom {
 
 model BomLine {
   id           String  @id @default(cuid())
-  bomId        String
-  lineNo       Int
-  componentId  String
+  bomId        String  @map("bom_id")
+  lineNo       Int     @map("line_no")
+  componentId  String  @map("component_id")
   quantity     Decimal @db.Decimal(15, 4)
   unit         String  @default("PCS")
   notes        String?
@@ -605,21 +605,21 @@ model BomLine {
 
 model WorkOrder {
   id              String          @id @default(cuid())
-  woNo            String          @unique
-  bomId           String?
-  itemId          String
-  plannedQty      Decimal         @db.Decimal(15, 4)
-  producedQty     Decimal         @default(0) @db.Decimal(15, 4)
-  warehouseId     String?
+  woNo            String          @unique @map("wo_no")
+  bomId           String?         @map("bom_id")
+  itemId          String          @map("item_id")
+  plannedQty      Decimal         @db.Decimal(15, 4) @map("planned_qty")
+  producedQty     Decimal         @default(0) @db.Decimal(15, 4) @map("produced_qty")
+  warehouseId     String?         @map("warehouse_id")
   status          String          @default("draft")
-  plannedStart    DateTime?
-  plannedEnd      DateTime?
-  actualStart     DateTime?
-  actualEnd       DateTime?
+  plannedStart    DateTime?       @map("planned_start")
+  plannedEnd      DateTime?       @map("planned_end")
+  actualStart     DateTime?       @map("actual_start")
+  actualEnd       DateTime?       @map("actual_end")
   notes           String?
-  createdBy       String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdBy       String?         @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
   bom             Bom?            @relation(fields: [bomId], references: [id])
   item            Item            @relation("WorkOrderItem", fields: [itemId], references: [id])
   operations      WoOperation[]
@@ -629,27 +629,27 @@ model WorkOrder {
 
 model WoOperation {
   id            String    @id @default(cuid())
-  workOrderId   String
-  stepNo        Int
+  workOrderId   String    @map("work_order_id")
+  stepNo        Int       @map("step_no")
   name          String
   description   String?
-  plannedHours  Decimal?  @db.Decimal(8, 2)
-  actualHours   Decimal?  @db.Decimal(8, 2)
+  plannedHours  Decimal?  @db.Decimal(8, 2) @map("planned_hours")
+  actualHours   Decimal?  @db.Decimal(8, 2) @map("actual_hours")
   status        String    @default("pending")
-  completedAt   DateTime?
+  completedAt   DateTime? @map("completed_at")
   workOrder     WorkOrder @relation(fields: [workOrderId], references: [id])
   @@map("wo_operations")
 }
 
 model WoMaterialIssue {
   id          String    @id @default(cuid())
-  workOrderId String
-  itemId      String
-  warehouseId String
-  requiredQty Decimal   @db.Decimal(15, 4)
-  issuedQty   Decimal   @default(0) @db.Decimal(15, 4)
-  issuedAt    DateTime?
-  issuedBy    String?
+  workOrderId String    @map("work_order_id")
+  itemId      String    @map("item_id")
+  warehouseId String    @map("warehouse_id")
+  requiredQty Decimal   @db.Decimal(15, 4) @map("required_qty")
+  issuedQty   Decimal   @default(0) @db.Decimal(15, 4) @map("issued_qty")
+  issuedAt    DateTime? @map("issued_at")
+  issuedBy    String?   @map("issued_by")
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
   item        Item      @relation("WoMaterialIssueItem", fields: [itemId], references: [id])
   @@map("wo_material_issues")
@@ -903,7 +903,7 @@ model CrmActivity {
 
 model InspectionOrder {
   id            String      @id @default(cuid())
-  ioNo          String      @unique
+  ioNo          String      @unique @map("io_no")
   type          String      // incoming | in_process | outgoing
   refDocType    String?     @map("ref_doc_type")
   refDocId      String?     @map("ref_doc_id")

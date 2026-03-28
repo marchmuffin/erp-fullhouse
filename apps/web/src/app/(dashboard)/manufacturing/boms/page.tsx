@@ -33,7 +33,7 @@ const COLUMNS: Column<Bom>[] = [
     key: 'lines',
     header: '組件數',
     width: 'w-24',
-    render: (r) => `${r.lines?.length ?? 0} 項`,
+    render: (r: any) => `${r._count?.lines ?? r.lines?.length ?? 0} 項`,
   },
   {
     key: 'isActive',

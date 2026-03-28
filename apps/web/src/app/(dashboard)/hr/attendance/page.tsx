@@ -37,7 +37,12 @@ function formatTime(dateStr?: string) {
 }
 
 const COLUMNS: Column<Attendance>[] = [
-  { key: 'employeeId', header: '員工ID', width: 'w-36' },
+  {
+    key: 'employeeId', header: '員工', width: 'w-36',
+    render: (r: any) => r.employee
+      ? <span>{r.employee.empNo} {r.employee.lastName}{r.employee.firstName}</span>
+      : r.employeeId,
+  },
   {
     key: 'date', header: '日期', width: 'w-28',
     render: (r) => formatDate(r.date),

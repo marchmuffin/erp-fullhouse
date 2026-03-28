@@ -76,10 +76,10 @@ export default function PayrollDetailPage() {
   const statusInfo = STATUS_MAP[run.status] ?? { label: run.status, variant: 'secondary' };
   const items = run.items ?? [];
 
-  const totalBaseSalary = items.reduce((s, i) => s + i.baseSalary, 0);
-  const totalAllowances = items.reduce((s, i) => s + i.allowances, 0);
-  const totalDeductions = items.reduce((s, i) => s + i.deductions, 0);
-  const totalNetPay = items.reduce((s, i) => s + i.netPay, 0);
+  const totalBaseSalary = items.reduce((s, i) => s + Number(i.baseSalary), 0);
+  const totalAllowances = items.reduce((s, i) => s + Number(i.allowances), 0);
+  const totalDeductions = items.reduce((s, i) => s + Number(i.deductions), 0);
+  const totalNetPay = items.reduce((s, i) => s + Number(i.netPay), 0);
 
   return (
     <div className="space-y-6">

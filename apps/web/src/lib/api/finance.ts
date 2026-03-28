@@ -51,7 +51,7 @@ export const financeApi = {
   accounts: {
     list: async (params?: { page?: number; perPage?: number; search?: string; type?: string }) => {
       const res = await apiClient.get('/finance/accounts', { params });
-      return extract(res) as PaginatedResponse<Account>;
+      return res.data as PaginatedResponse<Account>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/finance/accounts/${id}`);
@@ -69,7 +69,7 @@ export const financeApi = {
   journal: {
     list: async (params?: { page?: number; perPage?: number; search?: string; status?: string }) => {
       const res = await apiClient.get('/finance/journal-entries', { params });
-      return extract(res) as PaginatedResponse<JournalEntry>;
+      return res.data as PaginatedResponse<JournalEntry>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/finance/journal-entries/${id}`);
@@ -91,7 +91,7 @@ export const financeApi = {
   invoices: {
     list: async (params?: { page?: number; perPage?: number; search?: string; type?: string; status?: string }) => {
       const res = await apiClient.get('/finance/invoices', { params });
-      return extract(res) as PaginatedResponse<Invoice>;
+      return res.data as PaginatedResponse<Invoice>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/finance/invoices/${id}`);

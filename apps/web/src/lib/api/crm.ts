@@ -65,7 +65,7 @@ export const crmApi = {
       status?: string; source?: string;
     }) => {
       const res = await apiClient.get('/crm/leads', { params });
-      return extract(res) as PaginatedResponse<Lead>;
+      return res.data as PaginatedResponse<Lead>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/crm/leads/${id}`);
@@ -94,7 +94,7 @@ export const crmApi = {
       page?: number; perPage?: number; search?: string; stage?: string;
     }) => {
       const res = await apiClient.get('/crm/opportunities', { params });
-      return extract(res) as PaginatedResponse<Opportunity>;
+      return res.data as PaginatedResponse<Opportunity>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/crm/opportunities/${id}`);
@@ -124,7 +124,7 @@ export const crmApi = {
       opportunityId?: string; type?: string; status?: string;
     }) => {
       const res = await apiClient.get('/crm/activities', { params });
-      return extract(res) as PaginatedResponse<CrmActivity>;
+      return res.data as PaginatedResponse<CrmActivity>;
     },
     create: async (data: Partial<CrmActivity>) => {
       const res = await apiClient.post('/crm/activities', data);

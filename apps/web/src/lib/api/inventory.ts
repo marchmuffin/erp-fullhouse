@@ -98,7 +98,7 @@ export const inventoryApi = {
       isActive?: boolean;
     }) => {
       const res = await apiClient.get('/inventory/items', { params });
-      return extract(res) as PaginatedResponse<Item>;
+      return res.data as PaginatedResponse<Item>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/inventory/items/${id}`);
@@ -121,7 +121,7 @@ export const inventoryApi = {
   warehouses: {
     list: async (params?: { page?: number; perPage?: number; search?: string }) => {
       const res = await apiClient.get('/inventory/warehouses', { params });
-      return extract(res) as PaginatedResponse<Warehouse>;
+      return res.data as PaginatedResponse<Warehouse>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/inventory/warehouses/${id}`);
@@ -147,7 +147,7 @@ export const inventoryApi = {
       warehouseId?: string;
     }) => {
       const res = await apiClient.get('/inventory/transactions', { params });
-      return extract(res) as PaginatedResponse<StockTransaction>;
+      return res.data as PaginatedResponse<StockTransaction>;
     },
     receive: async (data: any) => {
       const res = await apiClient.post('/inventory/transactions/receive', data);
@@ -172,7 +172,7 @@ export const inventoryApi = {
       warehouseId?: string;
     }) => {
       const res = await apiClient.get('/inventory/counts', { params });
-      return extract(res) as PaginatedResponse<StockCount>;
+      return res.data as PaginatedResponse<StockCount>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/inventory/counts/${id}`);

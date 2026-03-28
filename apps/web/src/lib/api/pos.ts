@@ -61,7 +61,7 @@ export const posApi = {
   sessions: {
     list: async (params?: { page?: number; perPage?: number; status?: string }) => {
       const res = await apiClient.get('/pos/sessions', { params });
-      return extract(res) as PaginatedResponse<PosSession>;
+      return res.data as PaginatedResponse<PosSession>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/pos/sessions/${id}`);
@@ -83,7 +83,7 @@ export const posApi = {
   orders: {
     list: async (params?: { page?: number; perPage?: number; sessionId?: string; status?: string }) => {
       const res = await apiClient.get('/pos/orders', { params });
-      return extract(res) as PaginatedResponse<PosOrder>;
+      return res.data as PaginatedResponse<PosOrder>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/pos/orders/${id}`);

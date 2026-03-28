@@ -145,7 +145,7 @@ export default function CountDetailPage() {
   const linesWithVariance = lines.filter(
     (l) => l.variance !== undefined && l.variance !== null && l.variance !== 0,
   );
-  const totalVariance = lines.reduce((sum, l) => sum + (l.variance ?? 0), 0);
+  const totalVariance = lines.reduce((sum, l) => sum + Number(l.variance ?? 0), 0);
   const countedLines = lines.filter(
     (l) => l.countedQty !== undefined && l.countedQty !== null,
   );

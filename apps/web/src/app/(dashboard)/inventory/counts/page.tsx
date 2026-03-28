@@ -55,7 +55,7 @@ const COLUMNS: Column<StockCount>[] = [
     key: 'lines',
     header: '品項數',
     width: 'w-20',
-    render: (r) => (r.lines ? r.lines.length.toLocaleString() : '—'),
+    render: (r: any) => (r._count?.lines ?? r.lines?.length ?? '—').toLocaleString(),
   },
   {
     key: 'createdAt',

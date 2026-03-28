@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, TrendingUp,
   Factory, DollarSign, Users, Headphones, CheckCircle,
   BarChart3, GitBranch, ShoppingBag, Settings, ChevronLeft,
-  ChevronRight, LogOut,
+  ChevronRight, LogOut, UserCog, Building2, Database,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -95,6 +95,39 @@ export function AppSidebar() {
           );
         })}
       </nav>
+
+      {/* Admin section — visible to admins/superadmin */}
+      {(user?.isSuperAdmin || user?.permissions?.includes('user:view')) && (
+        <div className="px-2 pt-2 space-y-1">
+          {!collapsed && (
+            <div className="px-3 pt-3 pb-1">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">管理後台</p>
+            </div>
+          )}
+          <Link href="/admin/users" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+            pathname.startsWith('/admin/users') ? 'bg-primary/15 text-primary border border-primary/20' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+          )} title={collapsed ? '用戶管理' : undefined}>
+            <UserCog size={18} className={cn('flex-shrink-0', pathname.startsWith('/admin/users') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+            {!collapsed && <span className="truncate">用戶管理</span>}
+          </Link>
+          {user?.isSuperAdmin && (
+            <>
+              <Link href="/admin/tenants" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+                pathname.startsWith('/admin/tenants') ? 'bg-primary/15 text-primary border border-primary/20' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+              )} title={collapsed ? '租戶管理' : undefined}>
+                <Building2 size={18} className={cn('flex-shrink-0', pathname.startsWith('/admin/tenants') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                {!collapsed && <span className="truncate">租戶管理</span>}
+              </Link>
+              <Link href="/admin/system" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+                pathname.startsWith('/admin/system') ? 'bg-primary/15 text-primary border border-primary/20' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+              )} title={collapsed ? '系統管理' : undefined}>
+                <Database size={18} className={cn('flex-shrink-0', pathname.startsWith('/admin/system') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                {!collapsed && <span className="truncate">系統管理</span>}
+              </Link>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Bottom section */}
       <div className="border-t border-sidebar-border p-2 space-y-1">

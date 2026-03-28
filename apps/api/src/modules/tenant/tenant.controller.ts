@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Query, UseGuards, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TenantService } from './tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -20,6 +20,16 @@ export class TenantController {
     return this.tenantService.findAll(+page, +perPage);
   }
 
+  @Get('export')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Export all tenants as CSV (Super Admin only)' })
+  async exportCsv(@Res() res: any) {
+    const csv = await this.tenantService.exportCsv();
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="tenants.csv"');
+    res.send(csv);
+  }
+
   @Get(':id')
   @SuperAdmin()
   @ApiOperation({ summary: 'Get tenant by ID (Super Admin only)' })
@@ -32,6 +42,16 @@ export class TenantController {
   @ApiOperation({ summary: 'Create a new tenant (Super Admin only)' })
   create(@Body() dto: CreateTenantDto) {
     return this.tenantService.create(dto);
+  }
+
+  @Patch(':id')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update tenant details (Super Admin only)' })
+  update(
+    @Param('id') id: string,
+    @Body() body: { name?: string; contactEmail?: string; contactPhone?: string; plan?: string; status?: string; maxUsers?: number },
+  ) {
+    return this.tenantService.update(id, body);
   }
 
   @Patch(':id/suspend')

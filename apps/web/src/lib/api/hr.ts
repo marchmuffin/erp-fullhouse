@@ -142,7 +142,7 @@ export const hrApi = {
       department?: string;
     }) => {
       const res = await apiClient.get('/hr/employees', { params });
-      return extract(res) as PaginatedResponse<Employee>;
+      return res.data as PaginatedResponse<Employee>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/hr/employees/${id}`);
@@ -169,7 +169,7 @@ export const hrApi = {
       status?: string;
     }) => {
       const res = await apiClient.get('/hr/leave-requests', { params });
-      return extract(res) as PaginatedResponse<LeaveRequest>;
+      return res.data as PaginatedResponse<LeaveRequest>;
     },
     create: async (data: CreateLeavePayload) => {
       const res = await apiClient.post('/hr/leave-requests', data);
@@ -199,7 +199,7 @@ export const hrApi = {
       status?: string;
     }) => {
       const res = await apiClient.get('/hr/attendance', { params });
-      return extract(res) as PaginatedResponse<Attendance>;
+      return res.data as PaginatedResponse<Attendance>;
     },
     checkIn: async (employeeId: string) => {
       const res = await apiClient.post('/hr/attendance/check-in', { employeeId });
@@ -218,7 +218,7 @@ export const hrApi = {
   payroll: {
     list: async (params?: { page?: number; perPage?: number; status?: string }) => {
       const res = await apiClient.get('/hr/payroll-runs', { params });
-      return extract(res) as PaginatedResponse<PayrollRun>;
+      return res.data as PaginatedResponse<PayrollRun>;
     },
     get: async (id: string) => {
       const res = await apiClient.get(`/hr/payroll-runs/${id}`);

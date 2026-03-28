@@ -29,6 +29,7 @@ export class WarehouseService {
           select: {
             id: true, code: true, name: true, location: true,
             isActive: true, createdAt: true,
+            _count: { select: { stockLevels: true } },
           },
         }),
         tx.warehouse.count({ where }),

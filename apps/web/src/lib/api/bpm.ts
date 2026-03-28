@@ -69,7 +69,7 @@ export const bpmApi = {
       perPage?: number;
     }): Promise<PaginatedResponse<WorkflowDefinition>> => {
       const res = await apiClient.get('/bpm/definitions', { params });
-      return extract(res) as PaginatedResponse<WorkflowDefinition>;
+      return res.data as PaginatedResponse<WorkflowDefinition>;
     },
     create: async (data: {
       code: string;
@@ -94,7 +94,7 @@ export const bpmApi = {
       perPage?: number;
     }): Promise<PaginatedResponse<WorkflowInstance>> => {
       const res = await apiClient.get('/bpm/instances', { params });
-      return extract(res) as PaginatedResponse<WorkflowInstance>;
+      return res.data as PaginatedResponse<WorkflowInstance>;
     },
     get: async (id: string): Promise<WorkflowInstance> => {
       const res = await apiClient.get(`/bpm/instances/${id}`);

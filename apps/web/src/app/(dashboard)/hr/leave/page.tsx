@@ -82,7 +82,12 @@ export default function LeavePage() {
   });
 
   const COLUMNS: Column<LeaveRequest>[] = [
-    { key: 'employeeId', header: '員工ID', width: 'w-36' },
+    {
+      key: 'employeeId', header: '員工', width: 'w-36',
+      render: (r: any) => r.employee
+        ? <span>{r.employee.empNo} {r.employee.lastName}{r.employee.firstName}</span>
+        : r.employeeId,
+    },
     {
       key: 'leaveType', header: '假別', width: 'w-24',
       render: (r) => {

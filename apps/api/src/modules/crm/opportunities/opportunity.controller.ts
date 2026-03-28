@@ -17,7 +17,7 @@ export class OpportunityController {
   constructor(private readonly svc: OpportunityService) {}
 
   @Get()
-  @RequirePermissions('opp:view')
+  @RequirePermissions('opportunity:view')
   @ApiOperation({ summary: 'List opportunities' })
   findAll(
     @TenantSchema() schema: string,
@@ -30,14 +30,14 @@ export class OpportunityController {
   }
 
   @Get(':id')
-  @RequirePermissions('opp:view')
+  @RequirePermissions('opportunity:view')
   @ApiOperation({ summary: 'Get opportunity detail' })
   findById(@TenantSchema() schema: string, @Param('id') id: string) {
     return this.svc.findById(schema, id);
   }
 
   @Post()
-  @RequirePermissions('opp:create')
+  @RequirePermissions('opportunity:create')
   @ApiOperation({ summary: 'Create opportunity' })
   create(
     @TenantSchema() schema: string,
@@ -48,7 +48,7 @@ export class OpportunityController {
   }
 
   @Put(':id')
-  @RequirePermissions('opp:update')
+  @RequirePermissions('opportunity:update')
   @ApiOperation({ summary: 'Update opportunity' })
   update(
     @TenantSchema() schema: string,
@@ -59,14 +59,14 @@ export class OpportunityController {
   }
 
   @Patch(':id/close-won')
-  @RequirePermissions('opp:update')
+  @RequirePermissions('opportunity:update')
   @ApiOperation({ summary: 'Mark opportunity as closed won' })
   closeWon(@TenantSchema() schema: string, @Param('id') id: string) {
     return this.svc.closeWon(schema, id);
   }
 
   @Patch(':id/close-lost')
-  @RequirePermissions('opp:update')
+  @RequirePermissions('opportunity:update')
   @ApiOperation({ summary: 'Mark opportunity as closed lost' })
   closeLost(
     @TenantSchema() schema: string,

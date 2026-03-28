@@ -1,6 +1,8 @@
 import {
   Injectable,
   UnauthorizedException,
+  BadRequestException,
+  NotFoundException,
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -156,6 +158,7 @@ export class AuthService {
         locale: user.locale,
         timezone: user.timezone,
         permissions: uniquePermissions,
+        twoFaEnabled: user.twoFaEnabled,
       },
     };
   }
@@ -263,5 +266,46 @@ export class AuthService {
         userAgent,
       },
     });
+  }
+
+  async setup2FA(userId: string): Promise<{ secret: string; qrCodeUri: string }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const secret = authenticator.generateSecret();
+    const qrCodeUri = authenticator.keyuri(user.email, 'ERP全家桶', secret);
+    // Store secret temporarily (not enabled yet)
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFaSecret: secret } });
+    return { secret, qrCodeUri };
+  }
+
+  async enable2FA(userId: string, totpCode: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.twoFaSecret) throw new BadRequestException('2FA setup not initiated');
+    const isValid = authenticator.verify({ token: totpCode, secret: user.twoFaSecret });
+    if (!isValid) throw new UnauthorizedException('Invalid TOTP code');
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFaEnabled: true } });
+  }
+
+  async disable2FA(userId: string, password: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const isValid = await bcrypt.compare(password, user.passwordHash);
+    if (!isValid) throw new UnauthorizedException('Invalid password');
+    await this.prisma.user.update({ where: { id: userId }, data: { twoFaEnabled: false, twoFaSecret: null } });
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true, email: true, displayName: true, avatarUrl: true,
+        locale: true, timezone: true, twoFaEnabled: true, isSuperAdmin: true,
+        lastLoginAt: true, createdAt: true,
+        tenant: { select: { id: true, name: true, plan: true, status: true, trialEndsAt: true, subscriptionEndsAt: true } },
+        userRoles: { include: { role: { select: { id: true, name: true } } } },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return user;
   }
 }

@@ -89,11 +89,11 @@ export default function ActivitiesPage() {
     { key: 'subject', header: '主旨' },
     {
       key: 'leadId', header: '潛在客戶', width: 'w-32',
-      render: (r) => r.leadId ?? '-',
+      render: (r: any) => r.lead ? r.lead.name || r.lead.companyName || r.leadId : (r.leadId ? r.leadId.slice(0, 8) + '...' : '-'),
     },
     {
       key: 'opportunityId', header: '機會', width: 'w-32',
-      render: (r) => r.opportunityId ?? '-',
+      render: (r: any) => r.opportunity ? r.opportunity.title || r.opportunityId : (r.opportunityId ? r.opportunityId.slice(0, 8) + '...' : '-'),
     },
     {
       key: 'scheduledAt', header: '計畫時間', width: 'w-40',

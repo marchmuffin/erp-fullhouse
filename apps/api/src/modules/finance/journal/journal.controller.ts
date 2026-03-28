@@ -27,7 +27,7 @@ export class JournalController {
   constructor(private readonly svc: JournalService) {}
 
   @Get()
-  @RequirePermissions('je:view')
+  @RequirePermissions('journal:view')
   @ApiOperation({ summary: 'List journal entries' })
   findAll(
     @TenantSchema() schema: string,
@@ -47,14 +47,14 @@ export class JournalController {
   }
 
   @Get(':id')
-  @RequirePermissions('je:view')
+  @RequirePermissions('journal:view')
   @ApiOperation({ summary: 'Get journal entry by ID (with lines and account info)' })
   findById(@TenantSchema() schema: string, @Param('id') id: string) {
     return this.svc.findById(schema, id);
   }
 
   @Post()
-  @RequirePermissions('je:create')
+  @RequirePermissions('journal:create')
   @ApiOperation({ summary: 'Create journal entry (draft; must balance)' })
   create(
     @TenantSchema() schema: string,
@@ -65,7 +65,7 @@ export class JournalController {
   }
 
   @Patch(':id/post')
-  @RequirePermissions('je:post')
+  @RequirePermissions('journal:approve')
   @ApiOperation({ summary: 'Post journal entry (draft → posted)' })
   post(
     @TenantSchema() schema: string,
@@ -76,7 +76,7 @@ export class JournalController {
   }
 
   @Patch(':id/reverse')
-  @RequirePermissions('je:post')
+  @RequirePermissions('journal:approve')
   @ApiOperation({ summary: 'Reverse a posted journal entry (creates counter-entry)' })
   reverse(
     @TenantSchema() schema: string,

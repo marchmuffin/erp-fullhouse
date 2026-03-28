@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import * as RadixSwitch from '@radix-ui/react-switch';
+import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
+import { adminApi } from '@/lib/api/admin';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +15,7 @@ import { formatDate } from '@/lib/utils';
 // Types
 // ---------------------------------------------------------------------------
 
-type Tab = 'profile' | 'system' | 'notifications';
+type Tab = 'profile' | 'security' | 'system' | 'notifications';
 
 // ---------------------------------------------------------------------------
 // Toggle switch wrapper (Radix)
@@ -188,7 +191,168 @@ function ProfileTab() {
 }
 
 // ---------------------------------------------------------------------------
-// Tab 2: System
+// Tab 2: Security (2FA)
+// ---------------------------------------------------------------------------
+
+function SecurityTab() {
+  const { user, setUser } = useAuthStore();
+  const twoFaEnabled = user?.twoFaEnabled ?? false;
+
+  // Setup flow state
+  const [step, setStep] = useState<'idle' | 'scan' | 'verify'>('idle');
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [secret, setSecret] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [setupError, setSetupError] = useState('');
+
+  // Disable flow state
+  const [showDisable, setShowDisable] = useState(false);
+  const [disablePassword, setDisablePassword] = useState('');
+  const [disableError, setDisableError] = useState('');
+
+  const setupMut = useMutation({
+    mutationFn: () => adminApi.twoFa.setup(),
+    onSuccess: (data: any) => {
+      // API returns qrCodeUri (otpauth:// URI) — convert to QR image via Google Charts
+      const uri = data.qrCodeUri ?? data.qrCodeUrl ?? '';
+      setQrCodeUrl(
+        uri.startsWith('http')
+          ? uri
+          : `https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=${encodeURIComponent(uri)}`,
+      );
+      setSecret(data.secret);
+      setStep('scan');
+      setSetupError('');
+    },
+    onError: (e: Error) => setSetupError(e.message),
+  });
+
+  const enableMut = useMutation({
+    mutationFn: () => adminApi.twoFa.enable(totpCode),
+    onSuccess: () => {
+      if (user) setUser({ ...user, twoFaEnabled: true });
+      setStep('idle');
+      setTotpCode('');
+    },
+    onError: (e: Error) => setSetupError(e.message),
+  });
+
+  const disableMut = useMutation({
+    mutationFn: () => adminApi.twoFa.disable(disablePassword),
+    onSuccess: () => {
+      if (user) setUser({ ...user, twoFaEnabled: false });
+      setShowDisable(false);
+      setDisablePassword('');
+      setDisableError('');
+    },
+    onError: (e: Error) => setDisableError(e.message),
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="glass rounded-xl p-6 space-y-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-foreground">雙因素驗證 (2FA)</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              使用 Google Authenticator 或相容的 TOTP 應用程式保護您的帳戶。
+            </p>
+          </div>
+          <Badge variant={twoFaEnabled ? 'success' : 'secondary'}>
+            {twoFaEnabled ? '已啟用' : '未啟用'}
+          </Badge>
+        </div>
+
+        {!twoFaEnabled && step === 'idle' && (
+          <div>
+            {setupError && <p className="text-sm text-destructive mb-3">{setupError}</p>}
+            <Button onClick={() => setupMut.mutate()} disabled={setupMut.isPending}>
+              {setupMut.isPending ? '處理中...' : '啟用雙因素驗證'}
+            </Button>
+          </div>
+        )}
+
+        {step === 'scan' && (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-6 items-start">
+              <div className="bg-white p-3 rounded-lg">
+                {qrCodeUrl && (
+                  <Image src={qrCodeUrl} alt="2FA QR Code" width={160} height={160} unoptimized />
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm text-foreground font-medium">步驟 1：掃描 QR Code</p>
+                <p className="text-sm text-muted-foreground">使用 Google Authenticator 掃描左側 QR Code。</p>
+                <p className="text-sm text-foreground font-medium mt-3">或手動輸入金鑰：</p>
+                <code className="text-xs bg-muted px-2 py-1 rounded font-mono break-all">{secret}</code>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-foreground font-medium">步驟 2：輸入驗證碼</p>
+              <div className="flex gap-3">
+                <Input
+                  placeholder="6 位數驗證碼"
+                  value={totpCode}
+                  onChange={e => setTotpCode(e.target.value)}
+                  maxLength={6}
+                  className="w-40"
+                />
+                <Button
+                  onClick={() => enableMut.mutate()}
+                  disabled={totpCode.length < 6 || enableMut.isPending}
+                >
+                  {enableMut.isPending ? '驗證中...' : '確認啟用'}
+                </Button>
+                <Button variant="outline" onClick={() => { setStep('idle'); setTotpCode(''); setSetupError(''); }}>
+                  取消
+                </Button>
+              </div>
+              {setupError && <p className="text-sm text-destructive">{setupError}</p>}
+            </div>
+          </div>
+        )}
+
+        {twoFaEnabled && !showDisable && (
+          <div className="space-y-3">
+            <p className="text-sm text-emerald-400">您的帳戶已受到雙因素驗證保護。</p>
+            <Button variant="outline" onClick={() => setShowDisable(true)}>
+              停用雙因素驗證
+            </Button>
+          </div>
+        )}
+
+        {twoFaEnabled && showDisable && (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">請輸入您的密碼以停用 2FA：</p>
+            <div className="flex gap-3">
+              <Input
+                type="password"
+                placeholder="目前密碼"
+                value={disablePassword}
+                onChange={e => setDisablePassword(e.target.value)}
+                className="w-48"
+              />
+              <Button
+                variant="destructive"
+                onClick={() => disableMut.mutate()}
+                disabled={!disablePassword || disableMut.isPending}
+              >
+                {disableMut.isPending ? '停用中...' : '確認停用'}
+              </Button>
+              <Button variant="outline" onClick={() => { setShowDisable(false); setDisableError(''); }}>
+                取消
+              </Button>
+            </div>
+            {disableError && <p className="text-sm text-destructive">{disableError}</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tab 3: System (renamed from Tab 2)
 // ---------------------------------------------------------------------------
 
 function SystemTab() {
@@ -349,6 +513,7 @@ function NotificationsTab() {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'profile',       label: '個人資料' },
+  { id: 'security',      label: '安全設定' },
   { id: 'system',        label: '系統設定' },
   { id: 'notifications', label: '通知設定' },
 ];
@@ -383,6 +548,7 @@ export default function SettingsPage() {
 
       {/* Tab content */}
       {activeTab === 'profile'       && <ProfileTab />}
+      {activeTab === 'security'      && <SecurityTab />}
       {activeTab === 'system'        && <SystemTab />}
       {activeTab === 'notifications' && <NotificationsTab />}
     </div>

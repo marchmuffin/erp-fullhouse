@@ -28,7 +28,7 @@ const COLUMNS: Column<Warehouse>[] = [
     key: 'stockLevels',
     header: '品項數',
     width: 'w-24',
-    render: (r) => (r.stockLevels ? r.stockLevels.length.toLocaleString() : '—'),
+    render: (r: any) => (r._count?.stockLevels ?? r.stockLevels?.length ?? '—').toLocaleString(),
   },
   {
     key: 'isActive',
