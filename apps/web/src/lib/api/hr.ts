@@ -88,6 +88,44 @@ export interface PayrollRun {
   _count?: { items: number };
 }
 
+export interface PerformanceReview {
+  id: string;
+  reviewNo: string;
+  employeeId: string;
+  reviewerId?: string;
+  period: string;
+  reviewType: string;
+  status: string;
+  overallScore?: number;
+  goals?: string;
+  comments?: string;
+  reviewedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  employee?: {
+    id: string;
+    empNo: string;
+    firstName: string;
+    lastName: string;
+    department?: string;
+    position?: string;
+  };
+}
+
+export interface CreatePerformancePayload {
+  employeeId: string;
+  period: string;
+  reviewType?: string;
+  reviewerId?: string;
+  goals?: string;
+  comments?: string;
+}
+
+export interface CompletePerformancePayload {
+  overallScore: number;
+  comments?: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   meta: {
@@ -212,6 +250,43 @@ export const hrApi = {
     bulkImport: async (records: { employeeId: string; date: string; status?: string; hoursWorked?: number; notes?: string }[]) => {
       const res = await apiClient.post('/hr/attendance/bulk', { records });
       return extract(res);
+    },
+  },
+
+  performance: {
+    list: async (params?: {
+      page?: number;
+      perPage?: number;
+      employeeId?: string;
+      status?: string;
+      period?: string;
+    }) => {
+      const res = await apiClient.get('/hr/performance-reviews', { params });
+      return res.data as PaginatedResponse<PerformanceReview>;
+    },
+    get: async (id: string) => {
+      const res = await apiClient.get(`/hr/performance-reviews/${id}`);
+      return extract(res) as PerformanceReview;
+    },
+    create: async (data: CreatePerformancePayload) => {
+      const res = await apiClient.post('/hr/performance-reviews', data);
+      return extract(res) as PerformanceReview;
+    },
+    update: async (id: string, data: Partial<CreatePerformancePayload>) => {
+      const res = await apiClient.put(`/hr/performance-reviews/${id}`, data);
+      return extract(res) as PerformanceReview;
+    },
+    submit: async (id: string) => {
+      const res = await apiClient.patch(`/hr/performance-reviews/${id}/submit`);
+      return extract(res) as PerformanceReview;
+    },
+    complete: async (id: string, data: CompletePerformancePayload) => {
+      const res = await apiClient.patch(`/hr/performance-reviews/${id}/complete`, data);
+      return extract(res) as PerformanceReview;
+    },
+    cancel: async (id: string) => {
+      const res = await apiClient.patch(`/hr/performance-reviews/${id}/cancel`);
+      return extract(res) as PerformanceReview;
     },
   },
 

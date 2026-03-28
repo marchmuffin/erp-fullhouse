@@ -7,6 +7,8 @@ import { AttendanceController } from './attendance/attendance.controller';
 import { AttendanceService } from './attendance/attendance.service';
 import { PayrollController } from './payroll/payroll.controller';
 import { PayrollService } from './payroll/payroll.service';
+import { PerformanceController } from './performance/performance.controller';
+import { PerformanceService } from './performance/performance.service';
 
 @Module({
   controllers: [
@@ -14,13 +16,15 @@ import { PayrollService } from './payroll/payroll.service';
     LeaveController,
     AttendanceController,
     PayrollController,
+    PerformanceController,
   ],
   providers: [
     EmployeeService,
     LeaveService,
     AttendanceService,
     PayrollService,
+    PerformanceService,
   ],
-  exports: [EmployeeService, LeaveService, AttendanceService, PayrollService],
+  exports: [EmployeeService, LeaveService, AttendanceService, PayrollService, PerformanceService],
 })
 export class HrModule {}

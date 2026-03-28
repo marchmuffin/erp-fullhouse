@@ -45,6 +45,33 @@ export interface PaginatedResponse<T> {
 
 const extract = (res: any) => res.data?.data ?? res.data;
 
+export interface MrpRequirement {
+  id: string;
+  mrpRunId: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  requiredQty: number;
+  availableQty: number;
+  shortageQty: number;
+  unit: string;
+  workOrderId?: string;
+}
+
+export interface MrpRun {
+  id: string;
+  runNo: string;
+  planningDate: string;
+  horizon: number;
+  status: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  requirements?: MrpRequirement[];
+  _count?: { requirements: number };
+}
+
 export const manufacturingApi = {
   boms: {
     list: async (params?: { page?: number; perPage?: number; search?: string; isActive?: boolean }) => {
@@ -107,6 +134,28 @@ export const manufacturingApi = {
     completeOperation: async (woId: string, opId: string, data: { actualHours: number }) => {
       const res = await apiClient.patch(`/manufacturing/work-orders/${woId}/operations/${opId}/complete`, data);
       return extract(res) as WoOperation;
+    },
+  },
+  mrp: {
+    list: async (params?: { page?: number; perPage?: number }) => {
+      const res = await apiClient.get('/manufacturing/mrp', { params });
+      return res.data as PaginatedResponse<MrpRun>;
+    },
+    get: async (id: string) => {
+      const res = await apiClient.get(`/manufacturing/mrp/${id}`);
+      return extract(res) as MrpRun;
+    },
+    create: async (data: { planningDate: string; horizon?: number; notes?: string }) => {
+      const res = await apiClient.post('/manufacturing/mrp', data);
+      return extract(res) as MrpRun;
+    },
+    run: async (id: string) => {
+      const res = await apiClient.patch(`/manufacturing/mrp/${id}/run`);
+      return extract(res) as MrpRun;
+    },
+    cancel: async (id: string) => {
+      const res = await apiClient.patch(`/manufacturing/mrp/${id}/cancel`);
+      return extract(res) as MrpRun;
     },
   },
 };

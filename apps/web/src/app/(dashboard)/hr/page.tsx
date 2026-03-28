@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Users, CalendarDays, Clock, DollarSign, ArrowRight } from 'lucide-react';
+import { Users, CalendarDays, Clock, DollarSign, Star, ArrowRight } from 'lucide-react';
 
 export const metadata: Metadata = { title: 'HR 人力資源' };
 
@@ -32,6 +32,13 @@ const QUICK_LINKS = [
     title: '薪資管理',
     desc: '建立、審核與發放薪資單',
     color: 'text-purple-400',
+  },
+  {
+    href: '/hr/performance',
+    icon: Star,
+    title: '績效考核',
+    desc: '建立與追蹤員工年度及專案績效考核',
+    color: 'text-amber-400',
   },
 ];
 

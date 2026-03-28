@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Layers, ClipboardList, Activity, Package, ArrowRight } from 'lucide-react';
+import { Layers, ClipboardList, Activity, Package, ArrowRight, BarChart3 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { manufacturingApi } from '@/lib/api/manufacturing';
 
@@ -33,6 +33,13 @@ const QUICK_LINKS = [
     title: '用料發料',
     desc: '待發料工單清單',
     color: 'text-amber-400',
+  },
+  {
+    href: '/manufacturing/mrp',
+    icon: BarChart3,
+    title: 'MRP計畫',
+    desc: '物料需求計算與缺料分析',
+    color: 'text-rose-400',
   },
 ];
 

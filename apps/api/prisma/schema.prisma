@@ -655,6 +655,37 @@ model WoMaterialIssue {
   @@map("wo_material_issues")
 }
 
+model MrpRun {
+  id           String           @id @default(cuid())
+  runNo        String           @unique @map("run_no")
+  planningDate DateTime         @map("planning_date")
+  horizon      Int              @default(30)
+  status       String           @default("draft") // draft | running | completed | cancelled
+  notes        String?
+  createdBy    String?          @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  requirements MrpRequirement[]
+
+  @@map("mrp_runs")
+}
+
+model MrpRequirement {
+  id           String   @id @default(cuid())
+  mrpRunId     String   @map("mrp_run_id")
+  itemId       String   @map("item_id")
+  itemCode     String   @map("item_code")
+  itemName     String   @map("item_name")
+  requiredQty  Decimal  @map("required_qty") @db.Decimal(15, 4)
+  availableQty Decimal  @map("available_qty") @db.Decimal(15, 4)
+  shortageQty  Decimal  @map("shortage_qty") @db.Decimal(15, 4)
+  unit         String
+  workOrderId  String?  @map("work_order_id")
+  mrpRun       MrpRun   @relation(fields: [mrpRunId], references: [id])
+
+  @@map("mrp_requirements")
+}
+
 // ----- FINANCE MODULE -----
 
 model Account {
@@ -775,8 +806,9 @@ model Employee {
   notes         String?
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
-  leaveRequests LeaveRequest[]
-  attendances   Attendance[]
+  leaveRequests       LeaveRequest[]
+  attendances         Attendance[]
+  performanceReviews  PerformanceReview[]
   @@map("employees")
 }
 
@@ -838,6 +870,25 @@ model PayrollItem {
   netPay       Decimal    @map("net_pay") @db.Decimal(15, 2)
   payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id])
   @@map("payroll_items")
+}
+
+model PerformanceReview {
+  id           String    @id @default(cuid())
+  reviewNo     String    @unique @map("review_no")
+  employeeId   String    @map("employee_id")
+  reviewerId   String?   @map("reviewer_id")
+  period       String    // e.g. "2026-Q1", "2026-H1", "2026-FY"
+  reviewType   String    @default("annual") @map("review_type") // annual | mid_year | probation | project
+  status       String    @default("draft") // draft | in_review | completed | cancelled
+  overallScore Int?      @map("overall_score") // 1-5
+  goals        String?   // JSON string of goal items
+  comments     String?
+  reviewedAt   DateTime? @map("reviewed_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  employee     Employee  @relation(fields: [employeeId], references: [id])
+
+  @@map("performance_reviews")
 }
 
 // ----- CRM MODULE -----
