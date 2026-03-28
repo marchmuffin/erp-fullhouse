@@ -1012,6 +1012,27 @@ model PosOrderLine {
   @@map("pos_order_lines")
 }
 
+model ServiceTicket {
+  id          String    @id @default(cuid())
+  ticketNo    String    @unique @map("ticket_no")
+  title       String
+  description String?
+  type        String    @default("inquiry") // complaint | inquiry | repair | return | other
+  priority    String    @default("medium")  // low | medium | high | urgent
+  status      String    @default("open")    // open | in_progress | pending_customer | resolved | closed
+  customerId  String?   @map("customer_id")
+  leadId      String?   @map("lead_id")
+  assignedTo  String?   @map("assigned_to")
+  resolvedAt  DateTime? @map("resolved_at")
+  closedAt    DateTime? @map("closed_at")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  @@map("service_tickets")
+}
+
 // ----- BPM MODULE -----
 
 model WorkflowDefinition {

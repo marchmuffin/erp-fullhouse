@@ -51,6 +51,24 @@ export interface CrmActivity {
   opportunity?: Pick<Opportunity, 'id' | 'title'>;
 }
 
+export interface ServiceTicket {
+  id: string;
+  ticketNo: string;
+  title: string;
+  description?: string;
+  type: string;     // complaint | inquiry | repair | return | other
+  priority: string; // low | medium | high | urgent
+  status: string;   // open | in_progress | pending_customer | resolved | closed
+  customerId?: string;
+  leadId?: string;
+  assignedTo?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PaginatedResponse<T> {
   data: T[];
   meta: { page: number; perPage: number; total: number; totalPages: number };
@@ -137,6 +155,39 @@ export const crmApi = {
     cancel: async (id: string) => {
       const res = await apiClient.patch(`/crm/activities/${id}/cancel`);
       return extract(res) as CrmActivity;
+    },
+  },
+
+  tickets: {
+    list: async (params?: {
+      page?: number; perPage?: number; search?: string;
+      status?: string; priority?: string; type?: string;
+    }) => {
+      const res = await apiClient.get('/crm/tickets', { params });
+      return res.data as PaginatedResponse<ServiceTicket>;
+    },
+    get: async (id: string) => {
+      const res = await apiClient.get(`/crm/tickets/${id}`);
+      return extract(res) as ServiceTicket;
+    },
+    create: async (data: Partial<ServiceTicket>) => {
+      const res = await apiClient.post('/crm/tickets', data);
+      return extract(res) as ServiceTicket;
+    },
+    update: async (id: string, data: Partial<ServiceTicket>) => {
+      const res = await apiClient.put(`/crm/tickets/${id}`, data);
+      return extract(res) as ServiceTicket;
+    },
+    resolve: async (id: string) => {
+      const res = await apiClient.patch(`/crm/tickets/${id}/resolve`);
+      return extract(res) as ServiceTicket;
+    },
+    close: async (id: string) => {
+      const res = await apiClient.patch(`/crm/tickets/${id}/close`);
+      return extract(res) as ServiceTicket;
+    },
+    remove: async (id: string) => {
+      await apiClient.delete(`/crm/tickets/${id}`);
     },
   },
 };

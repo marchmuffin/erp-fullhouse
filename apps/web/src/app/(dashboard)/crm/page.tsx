@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { Users, TrendingUp, Calendar, UserCheck, ArrowRight } from 'lucide-react';
+import { Users, TrendingUp, Calendar, UserCheck, Ticket, ArrowRight } from 'lucide-react';
 import { crmApi } from '@/lib/api/crm';
 
 const QUICK_LINKS = [
@@ -33,6 +33,13 @@ const QUICK_LINKS = [
     title: '客戶管理',
     desc: '已成交客戶資料與往來記錄',
     color: 'text-purple-400',
+  },
+  {
+    href: '/crm/tickets',
+    icon: Ticket,
+    title: '客服工單',
+    desc: '投訴、詢問、維修、退貨工單管理',
+    color: 'text-rose-400',
   },
 ];
 
