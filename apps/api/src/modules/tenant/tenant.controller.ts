@@ -5,6 +5,7 @@ import { CreateTenantDto } from './dto/create-tenant.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { SuperAdmin, RequirePermissions } from '../../common/decorators';
+import { PLAN_DEFINITIONS, ALL_MODULES, MODULE_LABELS } from './plan.config';
 
 @ApiTags('tenants')
 @ApiBearerAuth()
@@ -12,6 +13,16 @@ import { SuperAdmin, RequirePermissions } from '../../common/decorators';
 @Controller({ path: 'tenants', version: '1' })
 export class TenantController {
   constructor(private readonly tenantService: TenantService) {}
+
+  @Get('plans')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Get all plan definitions (Super Admin only)' })
+  getPlans() {
+    return {
+      plans: Object.values(PLAN_DEFINITIONS),
+      allModules: ALL_MODULES.map((key) => ({ key, label: MODULE_LABELS[key] })),
+    };
+  }
 
   @Get()
   @SuperAdmin()
@@ -66,5 +77,15 @@ export class TenantController {
   @ApiOperation({ summary: 'Activate a tenant (Super Admin only)' })
   activate(@Param('id') id: string) {
     return this.tenantService.activate(id);
+  }
+
+  @Patch(':id/modules')
+  @SuperAdmin()
+  @ApiOperation({ summary: 'Update tenant module access (Super Admin only)' })
+  updateModules(
+    @Param('id') id: string,
+    @Body() body: { modules: string[]; maxUsers?: number; plan?: string },
+  ) {
+    return this.tenantService.updateModules(id, body.modules, body.maxUsers, body.plan);
   }
 }

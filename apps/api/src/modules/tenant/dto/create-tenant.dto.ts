@@ -1,6 +1,8 @@
 import {
-  IsString, IsEmail, IsOptional, IsEnum, IsArray, MinLength, MaxLength, Matches,
+  IsString, IsEmail, IsOptional, IsEnum, IsArray, IsInt, Min, Max,
+  MinLength, MaxLength, Matches,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateTenantDto {
@@ -48,6 +50,14 @@ export class CreateTenantDto {
   @IsOptional()
   @IsString()
   locale?: string;
+
+  @ApiPropertyOptional({ example: 10, minimum: 1, maximum: 9999 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(9999)
+  @Type(() => Number)
+  maxUsers?: number;
 
   // Initial admin user
   @ApiProperty({ example: 'admin@acme.com' })

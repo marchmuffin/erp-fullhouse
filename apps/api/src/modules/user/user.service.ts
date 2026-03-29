@@ -78,6 +78,17 @@ export class UserService {
   }
 
   async create(tenantId: string, data: { email: string; password: string; displayName: string; roleIds?: string[]; isSuperAdmin?: boolean }) {
+    // Enforce maxUsers limit
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (tenant) {
+      const currentCount = await this.prisma.user.count({ where: { tenantId, deletedAt: null } });
+      if (currentCount >= (tenant.maxUsers ?? 9999)) {
+        throw new BadRequestException(
+          `User limit reached. Your plan allows a maximum of ${tenant.maxUsers} users.`,
+        );
+      }
+    }
+
     const existing = await this.prisma.user.findFirst({
       where: { tenantId, email: data.email, deletedAt: null },
     });

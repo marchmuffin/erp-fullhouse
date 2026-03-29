@@ -7,7 +7,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, TrendingUp,
   Factory, DollarSign, Users, Headphones, CheckCircle,
   BarChart3, GitBranch, ShoppingBag, Settings, ChevronLeft,
-  ChevronRight, LogOut, UserCog, Building2, Database,
+  ChevronRight, LogOut, UserCog, Building2, Database, Layers,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
@@ -35,6 +35,9 @@ const NAV_ITEMS: NavItem[] = [
   { label: '流程管理', labelEn: 'BPM', href: '/bpm', icon: GitBranch, module: 'bpm' },
   { label: 'POS 銷售', labelEn: 'POS', href: '/pos', icon: ShoppingBag, module: 'pos' },
 ];
+
+// Modules that are always visible regardless of plan (core/dashboard)
+const ALWAYS_VISIBLE = new Set<string | undefined>([undefined]); // undefined = no module restriction
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -65,7 +68,10 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) =>
+          // SuperAdmin sees all; tenant users see only enabled modules
+          user?.isSuperAdmin || ALWAYS_VISIBLE.has(item.module) || (item.module && user?.modules?.includes(item.module))
+        ).map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
 
@@ -118,6 +124,12 @@ export function AppSidebar() {
                 <Building2 size={18} className={cn('flex-shrink-0', pathname.startsWith('/admin/tenants') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
                 {!collapsed && <span className="truncate">租戶管理</span>}
               </Link>
+              <Link href="/admin/plans" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
+                pathname.startsWith('/admin/plans') ? 'bg-primary/15 text-primary border border-primary/20' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
+              )} title={collapsed ? '方案管理' : undefined}>
+                <Layers size={18} className={cn('flex-shrink-0', pathname.startsWith('/admin/plans') ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                {!collapsed && <span className="truncate">方案管理</span>}
+              </Link>
               <Link href="/admin/system" className={cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
                 pathname.startsWith('/admin/system') ? 'bg-primary/15 text-primary border border-primary/20' : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground'
               )} title={collapsed ? '系統管理' : undefined}>
@@ -156,6 +168,15 @@ export function AppSidebar() {
           <LogOut size={18} className="flex-shrink-0" />
           {!collapsed && <span>登出</span>}
         </button>
+
+        {/* Version badge */}
+        {!collapsed && (
+          <div className="px-3 pt-1 pb-0.5">
+            <span className="text-[10px] text-muted-foreground/50 font-mono select-none">
+              v{process.env.NEXT_PUBLIC_VERSION ?? '—'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Collapse toggle */}

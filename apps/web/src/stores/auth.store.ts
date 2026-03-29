@@ -13,6 +13,7 @@ export interface AuthUser {
   timezone: string;
   permissions: string[];
   twoFaEnabled?: boolean;
+  modules: string[];
 }
 
 interface AuthState {
@@ -25,6 +26,7 @@ interface AuthState {
   setTokens: (accessToken: string, refreshToken: string) => void;
   clearAuth: () => void;
   hasPermission: (permission: string) => boolean;
+  hasModule: (module: string) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -48,6 +50,13 @@ export const useAuthStore = create<AuthState>()(
         if (!user) return false;
         if (user.isSuperAdmin) return true;
         return user.permissions.includes(permission);
+      },
+
+      hasModule: (module: string) => {
+        const { user } = get();
+        if (!user) return false;
+        if (user.isSuperAdmin) return true;
+        return user.modules?.includes(module) ?? false;
       },
     }),
     {

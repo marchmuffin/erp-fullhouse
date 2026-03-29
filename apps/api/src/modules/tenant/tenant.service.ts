@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import { PLAN_DEFINITIONS } from './plan.config';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -56,6 +57,12 @@ export class TenantService {
 
     const schemaName = `tenant_${dto.code.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
 
+    // Resolve plan defaults
+    const plan = dto.plan ?? 'starter';
+    const planDef = PLAN_DEFINITIONS[plan] ?? PLAN_DEFINITIONS.starter;
+    const resolvedModules = dto.modules?.length ? dto.modules : planDef.modules;
+    const resolvedMaxUsers = dto.maxUsers ?? planDef.maxUsers;
+
     // Create tenant and initial admin user in a transaction
     const tenant = await this.prisma.$transaction(async (tx) => {
       const newTenant = await tx.tenant.create({
@@ -64,12 +71,13 @@ export class TenantService {
           name: dto.name,
           contactEmail: dto.contactEmail,
           contactPhone: dto.contactPhone,
-          plan: dto.plan as any,
+          plan: plan as any,
           schemaName,
-          modules: dto.modules || [],
+          modules: resolvedModules,
           country: dto.country || 'TW',
           timezone: dto.timezone || 'Asia/Taipei',
           locale: dto.locale || 'zh-TW',
+          maxUsers: resolvedMaxUsers,
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14-day trial
         },
       });
@@ -77,12 +85,11 @@ export class TenantService {
       // Create tenant schema in PostgreSQL
       await tx.$executeRawUnsafe(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
 
-      // Create tenant business tables (sales module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS customers (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      // Initialize all business module tables — one statement per call
+      const tables = [
+        // ── Sales ──────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".customers (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           code VARCHAR(20) UNIQUE NOT NULL,
           name VARCHAR(200) NOT NULL,
           name_en VARCHAR(200),
@@ -104,10 +111,9 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           deleted_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS sales_orders (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".sales_orders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           order_no VARCHAR(30) UNIQUE NOT NULL,
           customer_id UUID NOT NULL REFERENCES "${schemaName}".customers(id),
           status VARCHAR(30) NOT NULL DEFAULT 'draft',
@@ -127,10 +133,9 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           deleted_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS so_lines (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".so_lines (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id) ON DELETE CASCADE,
           line_no INTEGER NOT NULL,
           item_code VARCHAR(30) NOT NULL,
@@ -144,10 +149,9 @@ export class TenantService {
           shipped_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
           notes TEXT,
           UNIQUE(so_id, line_no)
-        );
-
-        CREATE TABLE IF NOT EXISTS delivery_orders (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".delivery_orders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           do_no VARCHAR(30) UNIQUE NOT NULL,
           so_id UUID NOT NULL REFERENCES "${schemaName}".sales_orders(id),
           status VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -158,15 +162,10 @@ export class TenantService {
           created_by UUID NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
-      // Create tenant business tables (procurement module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS suppliers (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        // ── Procurement ────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".suppliers (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           code VARCHAR(20) UNIQUE NOT NULL,
           name VARCHAR(200) NOT NULL,
           name_en VARCHAR(200),
@@ -188,10 +187,9 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           deleted_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS purchase_requisitions (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".purchase_requisitions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           pr_no VARCHAR(30) UNIQUE NOT NULL,
           status VARCHAR(30) NOT NULL DEFAULT 'draft',
           request_date DATE NOT NULL,
@@ -205,10 +203,9 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           deleted_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS pr_lines (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".pr_lines (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           pr_id UUID NOT NULL REFERENCES "${schemaName}".purchase_requisitions(id) ON DELETE CASCADE,
           line_no INTEGER NOT NULL,
           item_code VARCHAR(30) NOT NULL,
@@ -218,10 +215,9 @@ export class TenantService {
           quantity NUMERIC(15,4) NOT NULL,
           notes TEXT,
           UNIQUE(pr_id, line_no)
-        );
-
-        CREATE TABLE IF NOT EXISTS purchase_orders (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".purchase_orders (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           po_no VARCHAR(30) UNIQUE NOT NULL,
           supplier_id UUID NOT NULL REFERENCES "${schemaName}".suppliers(id),
           pr_id UUID REFERENCES "${schemaName}".purchase_requisitions(id),
@@ -240,10 +236,9 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           deleted_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS po_lines (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".po_lines (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id) ON DELETE CASCADE,
           line_no INTEGER NOT NULL,
           item_code VARCHAR(30) NOT NULL,
@@ -256,10 +251,9 @@ export class TenantService {
           received_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
           notes TEXT,
           UNIQUE(po_id, line_no)
-        );
-
-        CREATE TABLE IF NOT EXISTS goods_receipts (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".goods_receipts (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           gr_no VARCHAR(30) UNIQUE NOT NULL,
           po_id UUID NOT NULL REFERENCES "${schemaName}".purchase_orders(id),
           status VARCHAR(20) NOT NULL DEFAULT 'draft',
@@ -268,10 +262,9 @@ export class TenantService {
           created_by UUID NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS gr_lines (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".gr_lines (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           gr_id UUID NOT NULL REFERENCES "${schemaName}".goods_receipts(id) ON DELETE CASCADE,
           po_line_id UUID NOT NULL,
           line_no INTEGER NOT NULL,
@@ -282,14 +275,9 @@ export class TenantService {
           received_qty NUMERIC(15,4) NOT NULL,
           notes TEXT,
           UNIQUE(gr_id, line_no)
-        );
-      `);
-
-      // Create tenant business tables (inventory module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS items (
+        )`,
+        // ── Inventory ──────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".items (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           code TEXT UNIQUE NOT NULL,
           name TEXT NOT NULL,
@@ -303,9 +291,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS warehouses (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".warehouses (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           code TEXT UNIQUE NOT NULL,
           name TEXT NOT NULL,
@@ -313,9 +300,8 @@ export class TenantService {
           is_active BOOLEAN NOT NULL DEFAULT true,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS stock_levels (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".stock_levels (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
           warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
@@ -323,9 +309,8 @@ export class TenantService {
           reserved_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE(item_id, warehouse_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS stock_transactions (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".stock_transactions (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           txn_no TEXT UNIQUE NOT NULL,
           item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
@@ -339,9 +324,8 @@ export class TenantService {
           notes TEXT,
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS stock_counts (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".stock_counts (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           count_no TEXT UNIQUE NOT NULL,
           warehouse_id TEXT NOT NULL REFERENCES "${schemaName}".warehouses(id),
@@ -352,9 +336,8 @@ export class TenantService {
           completed_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS stock_count_lines (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".stock_count_lines (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           stock_count_id TEXT NOT NULL REFERENCES "${schemaName}".stock_counts(id),
           item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
@@ -362,14 +345,9 @@ export class TenantService {
           counted_qty NUMERIC(15,4),
           variance NUMERIC(15,4),
           notes TEXT
-        );
-      `);
-
-      // Create tenant business tables (manufacturing module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS boms (
+        )`,
+        // ── Manufacturing ──────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".boms (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
           version TEXT NOT NULL DEFAULT '1.0',
@@ -378,9 +356,8 @@ export class TenantService {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE(item_id, version)
-        );
-
-        CREATE TABLE IF NOT EXISTS bom_lines (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".bom_lines (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           bom_id TEXT NOT NULL REFERENCES "${schemaName}".boms(id),
           line_no INTEGER NOT NULL,
@@ -388,9 +365,8 @@ export class TenantService {
           quantity NUMERIC(15,4) NOT NULL,
           unit TEXT NOT NULL DEFAULT 'PCS',
           notes TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS work_orders (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".work_orders (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           wo_no TEXT UNIQUE NOT NULL,
           bom_id TEXT REFERENCES "${schemaName}".boms(id),
@@ -407,9 +383,8 @@ export class TenantService {
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS wo_operations (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".wo_operations (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
           step_no INTEGER NOT NULL,
@@ -419,9 +394,8 @@ export class TenantService {
           actual_hours NUMERIC(8,2),
           status TEXT NOT NULL DEFAULT 'pending',
           completed_at TIMESTAMPTZ
-        );
-
-        CREATE TABLE IF NOT EXISTS wo_material_issues (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".wo_material_issues (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           work_order_id TEXT NOT NULL REFERENCES "${schemaName}".work_orders(id),
           item_id TEXT NOT NULL REFERENCES "${schemaName}".items(id),
@@ -430,14 +404,9 @@ export class TenantService {
           issued_qty NUMERIC(15,4) NOT NULL DEFAULT 0,
           issued_at TIMESTAMPTZ,
           issued_by TEXT
-        );
-      `);
-
-      // Create tenant business tables (finance module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS accounts (
+        )`,
+        // ── Finance ────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".accounts (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           code TEXT UNIQUE NOT NULL,
           name TEXT NOT NULL,
@@ -447,9 +416,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS journal_entries (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".journal_entries (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           je_no TEXT UNIQUE NOT NULL,
           je_date TIMESTAMPTZ NOT NULL,
@@ -463,9 +431,8 @@ export class TenantService {
           posted_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS journal_lines (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".journal_lines (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           journal_entry_id TEXT NOT NULL REFERENCES "${schemaName}".journal_entries(id),
           line_no INTEGER NOT NULL,
@@ -473,9 +440,8 @@ export class TenantService {
           credit_account_id TEXT REFERENCES "${schemaName}".accounts(id),
           amount NUMERIC(15,2) NOT NULL,
           description TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS invoices (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".invoices (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           invoice_no TEXT UNIQUE NOT NULL,
           type TEXT NOT NULL,
@@ -495,9 +461,8 @@ export class TenantService {
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS invoice_lines (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".invoice_lines (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
           line_no INTEGER NOT NULL,
@@ -505,9 +470,8 @@ export class TenantService {
           quantity NUMERIC(15,4) NOT NULL,
           unit_price NUMERIC(15,4) NOT NULL,
           amount NUMERIC(15,2) NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS payments (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".payments (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           payment_no TEXT UNIQUE NOT NULL,
           invoice_id TEXT NOT NULL REFERENCES "${schemaName}".invoices(id),
@@ -518,14 +482,9 @@ export class TenantService {
           notes TEXT,
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
-      // Create tenant business tables (HR module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS employees (
+        )`,
+        // ── HR ─────────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".employees (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           emp_no TEXT UNIQUE NOT NULL,
           first_name TEXT NOT NULL,
@@ -542,9 +501,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS leave_requests (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".leave_requests (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
           leave_type TEXT NOT NULL,
@@ -557,9 +515,8 @@ export class TenantService {
           approved_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS attendances (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".attendances (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           employee_id TEXT NOT NULL REFERENCES "${schemaName}".employees(id),
           date TIMESTAMPTZ NOT NULL,
@@ -570,9 +527,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           UNIQUE(employee_id, date)
-        );
-
-        CREATE TABLE IF NOT EXISTS payroll_runs (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".payroll_runs (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           run_no TEXT UNIQUE NOT NULL,
           period TEXT NOT NULL,
@@ -582,9 +538,8 @@ export class TenantService {
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS payroll_items (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".payroll_items (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           payroll_run_id TEXT NOT NULL REFERENCES "${schemaName}".payroll_runs(id),
           employee_id TEXT NOT NULL,
@@ -594,14 +549,9 @@ export class TenantService {
           allowances NUMERIC(15,2) NOT NULL DEFAULT 0,
           deductions NUMERIC(15,2) NOT NULL DEFAULT 0,
           net_pay NUMERIC(15,2) NOT NULL
-        );
-      `);
-
-      // Create tenant business tables (CRM module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS leads (
+        )`,
+        // ── CRM ────────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".leads (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           name TEXT NOT NULL,
           company TEXT,
@@ -614,9 +564,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS opportunities (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".opportunities (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           title TEXT NOT NULL,
           lead_id TEXT REFERENCES "${schemaName}".leads(id),
@@ -629,9 +578,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS crm_activities (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".crm_activities (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           type TEXT NOT NULL,
           subject TEXT NOT NULL,
@@ -644,14 +592,9 @@ export class TenantService {
           created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
-      // Create tenant business tables (quality module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS inspection_orders (
+        )`,
+        // ── Quality ────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".inspection_orders (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           io_no TEXT UNIQUE NOT NULL,
           type TEXT NOT NULL,
@@ -662,17 +605,15 @@ export class TenantService {
           result TEXT, inspector TEXT, inspected_at TIMESTAMPTZ, notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS io_checklist_items (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".io_checklist_items (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           inspection_order_id TEXT NOT NULL REFERENCES "${schemaName}".inspection_orders(id),
           item_no INTEGER NOT NULL,
           check_point TEXT NOT NULL,
           criteria TEXT, result TEXT, actual_value TEXT, notes TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS non_conformances (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".non_conformances (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           ncr_no TEXT UNIQUE NOT NULL,
           inspection_order_id TEXT REFERENCES "${schemaName}".inspection_orders(id),
@@ -683,14 +624,9 @@ export class TenantService {
           resolved_at TIMESTAMPTZ, resolved_by TEXT, created_by TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-      `);
-
-      // Create tenant business tables (POS module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS pos_sessions (
+        )`,
+        // ── POS ────────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".pos_sessions (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           session_no TEXT UNIQUE NOT NULL,
           cashier_id TEXT NOT NULL,
@@ -705,8 +641,8 @@ export class TenantService {
           notes TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS pos_orders (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".pos_orders (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           order_no TEXT UNIQUE NOT NULL,
           session_id TEXT NOT NULL REFERENCES "${schemaName}".pos_sessions(id),
@@ -721,8 +657,8 @@ export class TenantService {
           status TEXT NOT NULL DEFAULT 'completed',
           void_reason TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS pos_order_lines (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".pos_order_lines (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           pos_order_id TEXT NOT NULL REFERENCES "${schemaName}".pos_orders(id),
           item_id TEXT,
@@ -732,14 +668,9 @@ export class TenantService {
           unit_price NUMERIC(15,4) NOT NULL,
           discount NUMERIC(5,2) NOT NULL DEFAULT 0,
           amount NUMERIC(15,2) NOT NULL
-        );
-      `);
-
-      // Create tenant business tables (BPM module)
-      await tx.$executeRawUnsafe(`
-        SET LOCAL search_path TO "${schemaName}", public;
-
-        CREATE TABLE IF NOT EXISTS workflow_definitions (
+        )`,
+        // ── BPM ────────────────────────────────────────────────────────────
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".workflow_definitions (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           code TEXT UNIQUE NOT NULL,
           name TEXT NOT NULL,
@@ -750,8 +681,8 @@ export class TenantService {
           description TEXT,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS workflow_instances (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".workflow_instances (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           definition_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_definitions(id),
           doc_type TEXT NOT NULL,
@@ -762,8 +693,8 @@ export class TenantService {
           current_step INTEGER NOT NULL DEFAULT 1,
           status TEXT NOT NULL DEFAULT 'pending',
           completed_at TIMESTAMPTZ
-        );
-        CREATE TABLE IF NOT EXISTS workflow_steps (
+        )`,
+        `CREATE TABLE IF NOT EXISTS "${schemaName}".workflow_steps (
           id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
           instance_id TEXT NOT NULL REFERENCES "${schemaName}".workflow_instances(id),
           step_no INTEGER NOT NULL,
@@ -772,8 +703,12 @@ export class TenantService {
           actor_name TEXT,
           comment TEXT,
           acted_at TIMESTAMPTZ
-        );
-      `);
+        )`,
+      ];
+
+      for (const sql of tables) {
+        await tx.$executeRawUnsafe(sql);
+      }
 
       // Create initial admin user
       const passwordHash = await bcrypt.hash(dto.adminPassword, 12);
@@ -814,7 +749,27 @@ export class TenantService {
   async update(id: string, dto: { name?: string; contactEmail?: string; contactPhone?: string; plan?: string; status?: string; maxUsers?: number }) {
     const tenant = await this.prisma.tenant.findUnique({ where: { id, deletedAt: null } });
     if (!tenant) throw new NotFoundException('Tenant not found');
-    return this.prisma.tenant.update({ where: { id }, data: { ...dto } as any });
+
+    const updateData: any = { ...dto };
+
+    // When plan changes, sync maxUsers from plan defaults (unless maxUsers explicitly provided)
+    if (dto.plan && !dto.maxUsers) {
+      const planDef = PLAN_DEFINITIONS[dto.plan];
+      if (planDef) updateData.maxUsers = planDef.maxUsers;
+    }
+
+    return this.prisma.tenant.update({ where: { id }, data: updateData });
+  }
+
+  async updateModules(id: string, modules: string[], maxUsers?: number, plan?: string) {
+    const tenant = await this.prisma.tenant.findUnique({ where: { id, deletedAt: null } });
+    if (!tenant) throw new NotFoundException('Tenant not found');
+
+    const data: any = { modules };
+    if (maxUsers !== undefined) data.maxUsers = maxUsers;
+    if (plan !== undefined) data.plan = plan;
+
+    return this.prisma.tenant.update({ where: { id }, data });
   }
 
   async exportCsv(): Promise<string> {

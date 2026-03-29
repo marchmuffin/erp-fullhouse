@@ -28,7 +28,7 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { email, deletedAt: null },
       include: {
-        tenant: { select: { id: true, name: true, schemaName: true, status: true } },
+        tenant: { select: { id: true, name: true, schemaName: true, status: true, modules: true, maxUsers: true } },
         userRoles: {
           include: {
             role: {
@@ -159,6 +159,7 @@ export class AuthService {
         timezone: user.timezone,
         permissions: uniquePermissions,
         twoFaEnabled: user.twoFaEnabled,
+        modules: (user.tenant?.modules as string[]) ?? [],
       },
     };
   }

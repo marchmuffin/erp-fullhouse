@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Users, FileText, TrendingUp, Package, ArrowRight } from 'lucide-react';
+import { Users, FileText, TrendingUp, Truck, ArrowRight } from 'lucide-react';
 
 export const metadata: Metadata = { title: 'Sales' };
 
@@ -27,10 +27,10 @@ const QUICK_LINKS = [
     color: 'text-amber-400',
   },
   {
-    href: '/sales/orders?status=approved',
-    icon: Package,
-    title: '待出貨訂單',
-    desc: '已核准等待出貨的訂單列表',
+    href: '/sales/delivery',
+    icon: Truck,
+    title: '出貨管理',
+    desc: '管理已核准訂單的出貨與交貨記錄',
     color: 'text-purple-400',
   },
 ];

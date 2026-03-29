@@ -22,8 +22,23 @@ export interface AdminTenant {
   contactEmail: string;
   country: string;
   maxUsers: number;
+  modules: string[];
   createdAt: string;
   _count?: { users: number };
+}
+
+export interface PlanDefinition {
+  key: string;
+  label: string;
+  labelEn: string;
+  maxUsers: number;
+  modules: string[];
+  description: string;
+}
+
+export interface ModuleOption {
+  key: string;
+  label: string;
 }
 
 export const adminApi = {
@@ -47,13 +62,19 @@ export const adminApi = {
   // Tenants (super admin only)
   tenants: {
     list: (params?: { page?: number; perPage?: number }) =>
-      apiClient.get('/tenants', { params }).then(r => r.data.data ?? r.data),
-    get: (id: string) => apiClient.get(`/tenants/${id}`).then(r => r.data.data ?? r.data),
+      apiClient.get('/tenants', { params }).then(r => r.data),
+    get: (id: string) => apiClient.get(`/tenants/${id}`).then(r => r.data.data ?? r.data) as Promise<AdminTenant>,
     create: (data: any) => apiClient.post('/tenants', data).then(r => r.data.data ?? r.data),
     update: (id: string, data: any) => apiClient.patch(`/tenants/${id}`, data).then(r => r.data.data ?? r.data),
+    updateModules: (id: string, modules: string[], maxUsers?: number, plan?: string) =>
+      apiClient.patch(`/tenants/${id}/modules`, { modules, maxUsers, plan }).then(r => r.data.data ?? r.data),
     suspend: (id: string) => apiClient.patch(`/tenants/${id}/suspend`).then(r => r.data),
     activate: (id: string) => apiClient.patch(`/tenants/${id}/activate`).then(r => r.data),
     exportCsv: () => apiClient.get('/tenants/export', { responseType: 'blob' }).then(r => r.data),
+  },
+  // Plans (super admin only)
+  plans: {
+    list: () => apiClient.get('/tenants/plans').then(r => r.data as { plans: PlanDefinition[]; allModules: ModuleOption[] }),
   },
   // 2FA
   twoFa: {

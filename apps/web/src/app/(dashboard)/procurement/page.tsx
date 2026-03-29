@@ -8,7 +8,7 @@ const QUICK_LINKS = [
   { href: '/procurement/suppliers', icon: Building2, title: '供應商管理', desc: '管理供應商基本資料、往來條件與評級', color: 'text-blue-400' },
   { href: '/procurement/requisitions', icon: ClipboardList, title: '採購申請單', desc: '建立採購需求，提交主管審核', color: 'text-amber-400' },
   { href: '/procurement/orders', icon: ShoppingCart, title: '採購訂單', desc: '向供應商下單，管理訂單狀態與收貨', color: 'text-emerald-400' },
-  { href: '/procurement/orders?status=approved', icon: PackageCheck, title: '待收貨', desc: '已核准等待收貨入庫的採購訂單', color: 'text-purple-400' },
+  { href: '/procurement/receipts', icon: PackageCheck, title: '收貨管理', desc: '管理已核准採購單的收貨入庫作業', color: 'text-purple-400' },
 ];
 
 export default function ProcurementPage() {

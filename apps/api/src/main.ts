@@ -13,7 +13,11 @@ async function bootstrap() {
 
   const config = app.get(ConfigService);
   const port = config.get<number>('APP_PORT', 4001);
-  const corsOrigin = config.get<string>('CORS_ORIGIN', 'http://localhost:4000');
+  const corsOriginRaw = config.get<string>('CORS_ORIGIN', 'http://localhost:4000');
+  // Support comma-separated list of origins
+  const corsOrigin = corsOriginRaw.includes(',')
+    ? corsOriginRaw.split(',').map((o) => o.trim())
+    : corsOriginRaw;
 
   // Security
   app.use(helmet());
